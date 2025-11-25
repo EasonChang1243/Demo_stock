@@ -1,0 +1,134 @@
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TW-PocketScreener</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .card-shadow { box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen flex flex-col" x-data="screenerApp()">
+
+    <header class="bg-white px-4 py-3 border-b border-gray-100 flex justify-between items-center sticky top-0 z-50">
+        <div class="font-bold text-lg text-blue-600 tracking-tight">TW-Pocket<span class="text-gray-800">Screener</span></div>
+        <div class="text-xs text-gray-400">Data: 33.3</div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto no-scrollbar pb-32">
+        
+        <div class="bg-white m-3 p-4 rounded-2xl card-shadow border border-gray-100">
+            <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">核心篩選條件</h2>
+            
+            <div class="mb-6">
+                <div class="flex justify-between mb-2">
+                    <label class="font-bold text-gray-700">5年平均 ROE</label>
+                    <span class="text-blue-600 font-bold" x-text="roeFilter + '%'"></span>
+                </div>
+                <input type="range" min="0" max="30" step="1" x-model="roeFilter" 
+                       class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>0%</span>
+                    <span>15% (推薦)</span>
+                    <span>30%</span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between py-2">
+                <div class="flex flex-col">
+                    <span class="font-bold text-gray-700">連續10年配息</span>
+                    <span class="text-xs text-gray-400">過濾掉景氣循環與不穩定的公司</span>
+                </div>
+                <button 
+                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
+                    :class="divFilter ? 'bg-green-500' : 'bg-gray-200'"
+                    @click="divFilter = !divFilter">
+                    <span 
+                        class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                        :class="divFilter ? 'translate-x-6' : 'translate-x-1'">
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <div class="px-4 py-2 flex justify-between items-end">
+            <span class="font-bold text-xl">搜尋結果</span>
+            <span class="text-sm text-gray-500">符合 <span x-text="filteredStocks.length"></span> 檔</span>
+        </div>
+
+        <div class="px-3 space-y-3">
+            <template x-for="stock in filteredStocks" :key="stock.id">
+                <div class="bg-white p-4 rounded-xl border border-gray-100 card-shadow flex flex-col gap-3 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-0 flex gap-1">
+                        <template x-for="tag in stock.tags">
+                            <span class="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-bl-lg" x-text="tag"></span>
+                        </template>
+                    </div>
+
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl font-bold text-gray-900" x-text="stock.id"></span>
+                                <span class="text-lg text-gray-600" x-text="stock.name"></span>
+                            </div>
+                            <div class="text-xs text-gray-400 mt-0.5" x-text="stock.industry"></div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-lg font-bold text-gray-800" x-text="stock.price"></div>
+                            <div class="text-xs text-gray-400">TWD</div>
+                        </div>
+                    </div>
+
+                    <div class="h-px bg-gray-100 w-full"></div>
+
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="flex flex-col">
+                            <span class="text-xs text-gray-400">5年均 ROE</span>
+                            <span class="font-bold text-blue-600" x-text="stock.avgRoe + '%'"></span>
+                        </div>
+                        <div class="flex flex-col border-l border-gray-100">
+                            <span class="text-xs text-gray-400">5年均 EPS</span>
+                            <span class="font-bold text-gray-700" x-text="stock.avgEps"></span>
+                        </div>
+                        <div class="flex flex-col border-l border-gray-100">
+                            <span class="text-xs text-gray-400">殖利率</span>
+                            <span class="font-bold text-orange-500" x-text="stock.yield + '%'"></span>
+                        </div>
+                    </div>
+                </div>
+            </template>
+            
+            <div x-show="filteredStocks.length === 0" class="text-center py-10 text-gray-400">
+                <p>沒有符合條件的股票</p>
+                <p class="text-xs mt-2">試著放寬 ROE 條件？</p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function screenerApp() {
+            return {
+                roeFilter: 10,
+                divFilter: true,
+                // 這裡就是我們剛剛 Python 抓到的真實數據！
+                allStocks: [{"id": "2330", "name": "台積電", "industry": "半導體", "price": 1415.0, "change": 0.5, "avgRoe": 28.47, "avgEps": 34.81, "yield": 1.06, "consecutiveDiv": 15, "tags": ["連續15年", "高ROE"]}, {"id": "2454", "name": "聯發科", "industry": "半導體", "price": 1185.0, "change": 0.5, "avgRoe": 25.09, "avgEps": 65.15, "yield": 4.64, "consecutiveDiv": 15, "tags": ["連續15年", "高ROE"]}, {"id": "2303", "name": "聯電", "industry": "半導體", "price": 45.1, "change": 0.5, "avgRoe": 19.47, "avgEps": 5.1, "yield": 6.65, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "2317", "name": "鴻海", "industry": "電子代工", "price": 219.0, "change": 0.5, "avgRoe": 9.66, "avgEps": 10.38, "yield": 2.47, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "2308", "name": "台達電", "industry": "電子零組件", "price": 910.0, "change": 0.5, "avgRoe": 16.72, "avgEps": 12.33, "yield": 0.71, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "2881", "name": "富邦金", "industry": "金融保險", "price": 92.9, "change": 0.5, "avgRoe": 11.9, "avgEps": 7.15, "yield": 2.5, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "2891", "name": "中信金", "industry": "金融保險", "price": 43.3, "change": 0.5, "avgRoe": 12.16, "avgEps": 2.68, "yield": 4.16, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "2886", "name": "兆豐金", "industry": "金融保險", "price": 39.55, "change": 0.5, "avgRoe": 8.35, "avgEps": 1.92, "yield": 3.79, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "2892", "name": "第一金", "industry": "金融保險", "price": 28.2, "change": 0.5, "avgRoe": 9.12, "avgEps": 1.53, "yield": 2.94, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "1101", "name": "台泥", "industry": "水泥工業", "price": 21.2, "change": 0.5, "avgRoe": 5.1, "avgEps": 1.56, "yield": 4.72, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "2912", "name": "統一超", "industry": "貿易百貨", "price": 234.5, "change": 0.5, "avgRoe": 26.68, "avgEps": 9.69, "yield": 3.84, "consecutiveDiv": 15, "tags": ["連續15年", "高ROE"]}, {"id": "2002", "name": "中鋼", "industry": "鋼鐵工業", "price": 17.8, "change": 0.5, "avgRoe": 6.14, "avgEps": 1.35, "yield": 1.97, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "5347", "name": "世界", "industry": "半導體", "price": 90.1, "change": 0.5, "avgRoe": 23.6, "avgEps": 6.26, "yield": 4.93, "consecutiveDiv": 15, "tags": ["連續15年", "高ROE"]}, {"id": "9904", "name": "寶成", "industry": "製鞋", "price": 29.85, "change": 0.5, "avgRoe": 10.49, "avgEps": 4.56, "yield": 3.69, "consecutiveDiv": 15, "tags": ["連續15年"]}, {"id": "3293", "name": "鈊象", "industry": "文化創意", "price": 769.0, "change": 0.5, "avgRoe": 53.06, "avgEps": 22.8, "yield": 2.28, "consecutiveDiv": 15, "tags": ["連續15年", "高ROE"]}, {"id": "5880", "name": "合庫金", "industry": "金融保險", "price": 23.85, "change": 0.5, "avgRoe": 8.21, "avgEps": 1.23, "yield": 2.65, "consecutiveDiv": 14, "tags": ["連續14年"]}, {"id": "2412", "name": "中華電", "industry": "通信網路", "price": 131.0, "change": 0.5, "avgRoe": 9.62, "avgEps": 4.72, "yield": 3.63, "consecutiveDiv": 11, "tags": ["連續11年"]}, {"id": "8069", "name": "元太", "industry": "光電業", "price": 193.5, "change": 0.5, "avgRoe": 17.21, "avgEps": 6.96, "yield": 2.32, "consecutiveDiv": 9, "tags": []}, {"id": "2603", "name": "長榮", "industry": "航運業", "price": 180.5, "change": 0.5, "avgRoe": 41.43, "avgEps": 53.55, "yield": 5.52, "consecutiveDiv": 4, "tags": ["高ROE"]}, {"id": "2609", "name": "陽明", "industry": "航運業", "price": 51.3, "change": 0.5, "avgRoe": 35.99, "avgEps": 30.05, "yield": 3.9, "consecutiveDiv": 3, "tags": ["高ROE"]}, {"id": "6547", "name": "高端疫苗", "industry": "生技醫療", "price": 38.2, "change": 0.5, "avgRoe": -7.85, "avgEps": -0.98, "yield": 0.0, "consecutiveDiv": 0, "tags": []}, {"id": "6770", "name": "力積電", "industry": "半導體", "price": 33.3, "change": 0.5, "avgRoe": 9.37, "avgEps": 2.17, "yield": 0.0, "consecutiveDiv": 0, "tags": []}],
+
+                get filteredStocks() {
+                    return this.allStocks.filter(stock => {
+                        const passRoe = stock.avgRoe >= this.roeFilter;
+                        const passDiv = this.divFilter ? stock.consecutiveDiv >= 10 : true;
+                        return passRoe && passDiv;
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
