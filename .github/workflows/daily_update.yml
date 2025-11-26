@@ -1,0 +1,40 @@
+name: Daily Stock Update
+
+on:
+  schedule:
+    # 每天台灣時間下午 4:00 執行 (UTC 08:00)
+    - cron: '0 8 * * *'
+  workflow_dispatch: # 允許手動點擊按鈕執行
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Run screener script
+      run: |
+        python main.py
+
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add index.html
+        # 如果有更新才提交，避免錯誤
+        git commit -m "Auto-update stock data $(date)" || exit 0
+        git push
