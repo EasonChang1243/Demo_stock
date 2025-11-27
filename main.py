@@ -1,8 +1,7 @@
-# @title 🚀 TW-PocketScreener V2.1 (連結增強版)
-# @markdown 🔗 **新增：點擊股票代號可直接跳轉 Yahoo 股市個股頁面。**
-# @markdown 🕒 **修正：右上角更新時間改為台灣時間 (UTC+8)。**
-# @markdown 🔧 **修復：排序選單文字顯示不全的問題。**
-# @markdown 🏆 **核心：保留 V2.0 所有功能 (一鍵存股、5年平均精算、抗封鎖)。**
+# @title 🚀 TW-PocketScreener V2.1.1 (語法修復版)
+# @markdown 🔧 **修正：AttributeError: 'dict' object has no attribute 'id'。**
+# @markdown 📝 **原因：修復 Python f-string 與 JavaScript 模板語法的衝突。**
+# @markdown 🏆 **功能：完整保留 V2.1 所有功能 (一鍵存股、個股連結、深層挖掘)。**
 
 import subprocess
 import sys
@@ -18,7 +17,7 @@ import random
 import logging
 from datetime import datetime, timedelta
 
-# --- 0. 環境準備 (強制安裝缺少的套件) ---
+# --- 0. 環境準備 ---
 def install(package):
     try:
         __import__(package)
@@ -41,7 +40,7 @@ except ImportError:
 
 import yfinance as yf
 
-# 1. 設定環境與忽略警告
+# 1. 設定環境
 warnings.simplefilter(action='ignore', category=FutureWarning)
 yf_logger = logging.getLogger('yfinance')
 yf_logger.setLevel(logging.CRITICAL)
@@ -59,7 +58,6 @@ class NpEncoder(json.JSONEncoder):
 # ==========================================
 # 1. 取得全台股清單
 # ==========================================
-# 使用 UTC+8 時間顯示
 tw_time = datetime.utcnow() + timedelta(hours=8)
 print(f"📥 [1/4] 正在獲取全台股清單 ({tw_time.strftime('%H:%M:%S')})...")
 
@@ -97,7 +95,7 @@ if not all_stocks:
 print(f"📋 共取得 {len(all_stocks)} 檔股票。")
 
 # ==========================================
-# 2. 批次下載股價 (Batch Download)
+# 2. 批次下載股價
 # ==========================================
 print("\n📥 [2/4] 啟動批次股價下載 (Chunk Size: 100)...")
 
@@ -139,7 +137,6 @@ for i, chunk in enumerate(chunks):
                     "price": price, "vol": vol,
                     "sparkline": [round(x, 2) for x in close], 
                     "ma_bull": price > ma20,
-                    # 完整指標初始化
                     "eps_ttm": 0, "eps_avg": 0, 
                     "roe_ttm": 0, "roe_avg": 0, "roa": 0,
                     "gross_margin": 0, "op_margin": 0, 
@@ -153,18 +150,16 @@ for i, chunk in enumerate(chunks):
 print(f"\n✅ 股價獲取完成！有效: {len(processed_data)} 檔")
 
 # ==========================================
-# 3. 深層挖掘財報 (Deep Dive for 5-Year Stats)
+# 3. 深層挖掘財報
 # ==========================================
 print("\n📥 [3/4] 正在深層挖掘財報數據 (計算精確 5年 EPS/ROE)...")
-print("   ⚠️ 此階段需讀取每檔股票的損益表，速度較慢以避開封鎖，預計需 40~60 分鐘。")
+print("   ⚠️ 預計需 40~60 分鐘，請耐心等待。")
 
 def fetch_deep_stats(ticker):
-    time.sleep(random.uniform(1.0, 3.0)) # 模擬人類閱讀間隔
+    time.sleep(random.uniform(1.0, 3.0))
     
     try:
         stock = yf.Ticker(ticker)
-        
-        # 1. 基礎 Info
         try:
             info = stock.info
         except:
@@ -189,7 +184,6 @@ def fetch_deep_stats(ticker):
         if yield_avg is None: yield_avg = 0
         else: yield_avg = round(yield_avg, 2)
 
-        # 2. [關鍵] 計算 5 年平均 EPS
         eps_avg = 0
         income = pd.DataFrame()
         try:
@@ -205,7 +199,6 @@ def fetch_deep_stats(ticker):
                     if len(recent_eps) > 0: eps_avg = round(recent_eps.mean(), 2)
         except: eps_avg = eps_ttm
 
-        # 3. [關鍵] 計算 5 年平均 ROE
         roe_avg = 0
         try:
             bs = stock.balance_sheet
@@ -221,7 +214,6 @@ def fetch_deep_stats(ticker):
         except: pass
         if roe_avg == 0: roe_avg = roe_ttm
 
-        # 4. 計算連續配息
         cons_div = 0
         try:
             divs = stock.history(period="15y")['Dividends']
@@ -284,7 +276,6 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                              processed_data[t]['roe_avg'] >= 15)
                              
                 if is_golden: tags.append("🏆黃金存股")
-                
                 if processed_data[t]['yield'] > 5: tags.append("💰高殖利")
                 if processed_data[t]['roe_avg'] > 15: tags.append("🔥高ROE")
                 if processed_data[t]['ma_bull']: tags.append("📈站上月線")
@@ -304,19 +295,19 @@ except Exception as e:
 
 # --- 最終統計報告 ---
 print("\n" + "="*35)
-print("📊 TW-PocketScreener V2.1 執行報告")
+print("📊 TW-PocketScreener V2.1.1 執行報告")
 print("="*35)
 print(f"📋 監測總數 : {len(all_stocks)} 檔")
 print(f"✅ 股價有效 : {len(processed_data)} 檔")
-print(f"💎 財報完整 : {enriched_count} 檔 (含5年精算數據)")
+print(f"💎 財報完整 : {enriched_count} 檔")
 print("="*35 + "\n")
 
 # ==========================================
-# 4. 生成 HTML (V2.1)
+# 4. 生成 HTML (V2.1.1)
 # ==========================================
-# 修正：轉換為台灣時間 (UTC+8)
 update_time = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
 
+# 🔥 修正點：${stock.id} 改為 ${{stock.id}}，避免 Python f-string 誤判
 html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -350,7 +341,6 @@ html = f"""<!DOCTYPE html>
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path></svg>
                     一鍵套用「黃金存股 5 法則」
                 </button>
-                
                 <div class="flex flex-wrap gap-2 mb-4 min-h-[30px]"><template x-for="(filter, index) in filters" :key="index"><div class="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-100 text-sm shadow-sm"><span class="font-medium" x-text="getLabel(filter)"></span><button @click="removeFilter(index)" class="ml-1 text-blue-400 hover:text-blue-800 font-bold">×</button></div></template></div>
                 <div class="flex flex-col gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                     <select x-model="newFilter.type" class="w-full p-2.5 rounded-lg border border-slate-300 text-sm font-medium bg-white outline-none focus:ring-2 focus:ring-blue-500">
@@ -397,7 +387,7 @@ html = f"""<!DOCTYPE html>
                     <div class="flex gap-1 mb-2 overflow-x-auto no-scrollbar"><template x-for="tag in stock.tags"><span class="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap" :class="tag.includes('黃金') ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-white shadow-sm' : (tag.includes('高') ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700')" x-text="tag"></span></template></div>
                     <div class="flex justify-between items-center mb-3">
                         <div class="w-1/3">
-                            <a :href="`https://tw.stock.yahoo.com/quote/${stock.id}`" target="_blank" class="flex items-center gap-2 hover:text-blue-600 transition-colors">
+                            <a :href="`https://tw.stock.yahoo.com/quote/${{stock.id}}`" target="_blank" class="flex items-center gap-2 hover:text-blue-600 transition-colors">
                                 <span class="text-2xl font-bold text-slate-900 hover:text-blue-600 cursor-pointer" x-text="stock.id"></span>
                                 <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                             </a>
