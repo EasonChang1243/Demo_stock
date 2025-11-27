@@ -31,12 +31,8 @@ jobs:
         python main.py
 
     - name: Commit and Push changes
-      run: |
-        git config --global user.name "GitHub Actions"
-        git config --global user.email "actions@github.com"
-        git add index.html
-        # 如果有更新才提交，避免錯誤
-        git commit -m "Auto-update stock data $(date)" || exit 0
-        # 🔥 新增這行：上傳前先同步最新版本，解決衝突
-        git pull --rebase
-        git push
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: Auto-update stock data
+        file_pattern: index.html
+        branch: main
