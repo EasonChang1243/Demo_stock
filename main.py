@@ -1,7 +1,8 @@
-# @title 🚀 TW-PocketScreener V2.0 (黃金存股版)
-# @markdown 🏆 **新增功能：加入「一鍵存股」按鈕，自動套入圖片中的 5 大嚴格篩選條件。**
-# @markdown 🛡️ **核心技術：基於 V1.9.1 深層挖掘版，確保 5 年平均數據 (EPS/ROE) 的精確度。**
-# @markdown ⏳ **預計耗時：約 40~60 分鐘 (因為要精算 5 年歷史數據，請掛著網頁等待)。**
+# @title 🚀 TW-PocketScreener V2.1 (連結增強版)
+# @markdown 🔗 **新增：點擊股票代號可直接跳轉 Yahoo 股市個股頁面。**
+# @markdown 🕒 **修正：右上角更新時間改為台灣時間 (UTC+8)。**
+# @markdown 🔧 **修復：排序選單文字顯示不全的問題。**
+# @markdown 🏆 **核心：保留 V2.0 所有功能 (一鍵存股、5年平均精算、抗封鎖)。**
 
 import subprocess
 import sys
@@ -15,11 +16,32 @@ import concurrent.futures
 import warnings
 import random
 import logging
-from datetime import datetime
-from fake_useragent import UserAgent
+from datetime import datetime, timedelta
+
+# --- 0. 環境準備 (強制安裝缺少的套件) ---
+def install(package):
+    try:
+        __import__(package)
+    except ImportError:
+        print(f"📦 正在安裝 {package}...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+install('yfinance')
+install('pandas')
+install('numpy')
+install('lxml')
+install('requests')
+
+try:
+    from fake_useragent import UserAgent
+except ImportError:
+    print("📦 正在安裝 fake-useragent...")
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "fake-useragent"])
+    from fake_useragent import UserAgent
+
 import yfinance as yf
 
-# 1. 環境設定
+# 1. 設定環境與忽略警告
 warnings.simplefilter(action='ignore', category=FutureWarning)
 yf_logger = logging.getLogger('yfinance')
 yf_logger.setLevel(logging.CRITICAL)
@@ -37,11 +59,14 @@ class NpEncoder(json.JSONEncoder):
 # ==========================================
 # 1. 取得全台股清單
 # ==========================================
-print(f"📥 [1/4] 正在獲取全台股清單 ({datetime.now().strftime('%H:%M:%S')})...")
+# 使用 UTC+8 時間顯示
+tw_time = datetime.utcnow() + timedelta(hours=8)
+print(f"📥 [1/4] 正在獲取全台股清單 ({tw_time.strftime('%H:%M:%S')})...")
 
 def get_tw_stock_list():
     stock_list = []
     ua = UserAgent()
+    
     def fetch_isin(url, suffix):
         try:
             headers = {'User-Agent': ua.random}
@@ -60,6 +85,7 @@ def get_tw_stock_list():
                             stock_list.append({'id': code, 'name': name, 'suffix': suffix, 'ticker': code + suffix})
                 except: continue
         except: pass
+    
     fetch_isin("https://isin.twse.com.tw/isin/C_public.jsp?strMode=2", ".TW")
     fetch_isin("https://isin.twse.com.tw/isin/C_public.jsp?strMode=4", ".TWO")
     return stock_list
@@ -159,12 +185,11 @@ def fetch_deep_stats(ticker):
         if info.get('dividendRate') and info.get('regularMarketPrice'):
              div_yield = round((info['dividendRate'] / info['regularMarketPrice']) * 100, 2)
         
-        # 5年平均殖利率
         yield_avg = info.get('fiveYearAvgDividendYield', 0)
         if yield_avg is None: yield_avg = 0
         else: yield_avg = round(yield_avg, 2)
 
-        # 2. [關鍵] 計算 5 年平均 EPS (Income Statement)
+        # 2. [關鍵] 計算 5 年平均 EPS
         eps_avg = 0
         income = pd.DataFrame()
         try:
@@ -178,9 +203,9 @@ def fetch_deep_stats(ticker):
                     eps_series = income.loc['Diluted EPS']
                     recent_eps = eps_series.head(5).dropna()
                     if len(recent_eps) > 0: eps_avg = round(recent_eps.mean(), 2)
-        except: eps_avg = eps_ttm # Fallback
+        except: eps_avg = eps_ttm
 
-        # 3. [關鍵] 計算 5 年平均 ROE (Income + Balance Sheet)
+        # 3. [關鍵] 計算 5 年平均 ROE
         roe_avg = 0
         try:
             bs = stock.balance_sheet
@@ -194,12 +219,11 @@ def fetch_deep_stats(ticker):
                     if len(recent_roe) > 0:
                         roe_avg = round(recent_roe.mean(), 2)
         except: pass
-        if roe_avg == 0: roe_avg = roe_ttm # Fallback
+        if roe_avg == 0: roe_avg = roe_ttm
 
-        # 4. 計算連續配息 (10年目標)
+        # 4. 計算連續配息
         cons_div = 0
         try:
-            # 抓 15 年歷史來確保能算出 10 年
             divs = stock.history(period="15y")['Dividends']
             if not divs.empty:
                 yearly_divs = divs.groupby(divs.index.year).sum()
@@ -238,7 +262,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
         t = future_to_ticker[future]
         count += 1
         
-        if count % 50 == 0: time.sleep(10) # 休息機制
+        if count % 50 == 0: time.sleep(10)
         
         if count % 5 == 0 or count == total:
             elapsed = time.time() - start_time
@@ -252,7 +276,6 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             if stats:
                 processed_data[t].update(stats)
                 
-                # 根據用戶圖片生成的「黃金存股」標籤
                 tags = []
                 is_golden = (processed_data[t]['eps_ttm'] >= 1 and 
                              processed_data[t]['eps_avg'] >= 2 and
@@ -262,7 +285,6 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                              
                 if is_golden: tags.append("🏆黃金存股")
                 
-                # 輔助標籤
                 if processed_data[t]['yield'] > 5: tags.append("💰高殖利")
                 if processed_data[t]['roe_avg'] > 15: tags.append("🔥高ROE")
                 if processed_data[t]['ma_bull']: tags.append("📈站上月線")
@@ -282,7 +304,7 @@ except Exception as e:
 
 # --- 最終統計報告 ---
 print("\n" + "="*35)
-print("📊 TW-PocketScreener V2.0 執行報告")
+print("📊 TW-PocketScreener V2.1 執行報告")
 print("="*35)
 print(f"📋 監測總數 : {len(all_stocks)} 檔")
 print(f"✅ 股價有效 : {len(processed_data)} 檔")
@@ -290,16 +312,17 @@ print(f"💎 財報完整 : {enriched_count} 檔 (含5年精算數據)")
 print("="*35 + "\n")
 
 # ==========================================
-# 4. 生成 HTML (V2.0)
+# 4. 生成 HTML (V2.1)
 # ==========================================
-update_time = datetime.now().strftime('%Y-%m-%d %H:%M')
+# 修正：轉換為台灣時間 (UTC+8)
+update_time = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
 
 html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TW-PocketScreener V2.0</title>
+    <title>TW-PocketScreener V2.1</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -312,8 +335,8 @@ html = f"""<!DOCTYPE html>
             Pocket<span class="text-slate-900">Screener</span>
         </div>
         <div class="flex flex-col items-end">
-            <div class="text-[10px] text-slate-400">{update_time}</div>
-            <div class="text-[10px] font-mono text-white bg-yellow-500 px-1.5 rounded">V2.0</div>
+            <div class="text-[10px] text-slate-400">更新: {update_time}</div>
+            <div class="text-[10px] font-mono text-white bg-green-600 px-1.5 rounded">V2.1</div>
         </div>
     </header>
     <main class="flex-1 overflow-y-auto no-scrollbar pb-32">
@@ -355,14 +378,32 @@ html = f"""<!DOCTYPE html>
         </div>
         <div class="px-4 py-2 flex justify-between items-center border-b border-slate-200 mx-2 pb-2 bg-slate-100">
             <div class="text-sm font-medium text-slate-500">符合: <span x-text="filteredStocks.length"></span> 檔<span x-show="displayCount < filteredStocks.length" class="text-xs text-slate-400 ml-1">(前 <span x-text="displayCount"></span>)</span></div>
-            <div class="flex items-center gap-2"><div class="text-xs text-slate-400">排序:</div><select x-model="sortKey" class="text-sm font-bold text-slate-700 bg-transparent border-none outline-none focus:ring-0 cursor-pointer text-right dir-rtl"><option value="yield_avg">5年殖利</option><option value="roe_avg">5年ROE</option><option value="eps_avg">5年EPS</option><option value="cons_div">配息年數</option><option value="yield">目前殖利</option><option value="id">代號</option></select><button @click="sortDesc = !sortDesc" class="p-1.5 bg-white rounded-md border border-slate-200 shadow-sm text-slate-600 active:bg-slate-100"><span x-show="sortDesc">⬇️</span><span x-show="!sortDesc">⬆️</span></button></div>
+            <div class="flex items-center gap-2">
+                <div class="text-xs text-slate-400">排序:</div>
+                <select x-model="sortKey" class="p-1 rounded border border-slate-300 text-sm font-bold text-slate-700 bg-white outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="yield_avg">5年平均殖利率</option>
+                    <option value="roe_avg">5年平均 ROE</option>
+                    <option value="eps_avg">5年平均 EPS</option>
+                    <option value="cons_div">連續配息年數</option>
+                    <option value="yield">目前殖利率</option>
+                    <option value="id">股票代號</option>
+                </select>
+                <button @click="sortDesc = !sortDesc" class="p-1.5 bg-white rounded-md border border-slate-200 shadow-sm text-slate-600 active:bg-slate-100"><span x-show="sortDesc">⬇️</span><span x-show="!sortDesc">⬆️</span></button>
+            </div>
         </div>
         <div class="px-3 py-3 space-y-3">
             <template x-for="stock in filteredStocks.slice(0, displayCount)" :key="stock.id">
                 <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] transition-all hover:shadow-md">
                     <div class="flex gap-1 mb-2 overflow-x-auto no-scrollbar"><template x-for="tag in stock.tags"><span class="text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap" :class="tag.includes('黃金') ? 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-white shadow-sm' : (tag.includes('高') ? 'bg-rose-100 text-rose-700' : 'bg-blue-100 text-blue-700')" x-text="tag"></span></template></div>
                     <div class="flex justify-between items-center mb-3">
-                        <div class="w-1/3"><div class="flex items-center gap-2"><span class="text-2xl font-bold text-slate-900" x-text="stock.id"></span></div><div class="text-sm text-slate-600 font-medium truncate" x-text="stock.name"></div><div class="text-[10px] text-slate-400 mt-1 flex flex-col"><span :class="sortKey==='pe'?'text-blue-600 font-bold':''">P/E: <span x-text="stock.pe>0?stock.pe:'-'"></span></span><span>P/B: <span x-text="stock.pb>0?stock.pb:'-'"></span></span></div></div>
+                        <div class="w-1/3">
+                            <a :href="`https://tw.stock.yahoo.com/quote/${stock.id}`" target="_blank" class="flex items-center gap-2 hover:text-blue-600 transition-colors">
+                                <span class="text-2xl font-bold text-slate-900 hover:text-blue-600 cursor-pointer" x-text="stock.id"></span>
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                            </a>
+                            <div class="text-sm text-slate-600 font-medium truncate" x-text="stock.name"></div>
+                            <div class="text-[10px] text-slate-400 mt-1 flex flex-col"><span :class="sortKey==='pe'?'text-blue-600 font-bold':''">P/E: <span x-text="stock.pe>0?stock.pe:'-'"></span></span><span>P/B: <span x-text="stock.pb>0?stock.pb:'-'"></span></span></div>
+                        </div>
                         <div class="flex-1 h-10 px-2 flex items-center justify-center"><template x-if="stock.sparkline.length > 2"><svg class="w-full h-full overflow-visible" viewBox="0 0 100 30" preserveAspectRatio="none"><path :d="getSparklinePath(stock.sparkline)" fill="none" stroke-width="2" :stroke="stock.sparkline[stock.sparkline.length-1] >= stock.sparkline[0] ? '#ef4444' : '#10b981'" stroke-linecap="round" stroke-linejoin="round" /></svg></template></div>
                         <div class="w-1/3 text-right"><div class="text-xl font-bold text-slate-800" x-text="stock.price"></div><div class="text-xs font-bold" :class="stock.rev_growth>0?'text-red-500':'text-green-500'">YoY: <span x-text="stock.rev_growth!=0?stock.rev_growth+'%':'-'"></span></div><div class="text-[10px] mt-1 text-slate-400">殖: <span class="font-bold text-emerald-600" x-text="stock.yield>0?stock.yield+'%':'-'"></span></div></div>
                     </div>
@@ -382,14 +423,13 @@ html = f"""<!DOCTYPE html>
             return {{
                 stocks: {json_db}, filters: [], newFilter: {{ type: 'roe_avg', operator: '>=', value: 15 }}, showFilter: true, sortKey: 'yield_avg', sortDesc: true, displayCount: 20,
                 
-                // V2.0 核心功能：套用存股 5 大法則
                 applyDepositStrategy() {{
                     this.filters = [
-                        {{ type: 'eps_ttm', operator: '>=', value: 1 }},   // 近一年 EPS > 1
-                        {{ type: 'eps_avg', operator: '>=', value: 2 }},   // 5年平均 EPS > 2
-                        {{ type: 'yield_avg', operator: '>=', value: 5 }}, // 5年平均殖利率 > 5%
-                        {{ type: 'cons_div', operator: '>=', value: 10 }}, // 連續 10 年配息
-                        {{ type: 'roe_avg', operator: '>=', value: 15 }}   // 5年平均 ROE > 15%
+                        {{ type: 'eps_ttm', operator: '>=', value: 1 }},   
+                        {{ type: 'eps_avg', operator: '>=', value: 2 }},   
+                        {{ type: 'yield_avg', operator: '>=', value: 5 }}, 
+                        {{ type: 'cons_div', operator: '>=', value: 10 }}, 
+                        {{ type: 'roe_avg', operator: '>=', value: 15 }}   
                     ];
                     this.sortKey = 'yield_avg';
                     this.displayCount = 20;
