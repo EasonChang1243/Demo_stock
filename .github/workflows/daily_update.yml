@@ -6,6 +6,7 @@ on:
     - cron: '0 8 * * *'
   workflow_dispatch: # 允許手動點擊按鈕執行
 
+# 給予寫入權限 (非常重要)
 permissions:
   contents: write
 
@@ -15,10 +16,12 @@ jobs:
 
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        ref: main
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
 
@@ -30,6 +33,7 @@ jobs:
       run: |
         python main.py
 
+    # 🔥 使用智慧上傳套件，自動解決衝突
     - name: Commit and Push changes
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
