@@ -13,7 +13,7 @@ from datetime import datetime
 from fake_useragent import UserAgent
 import yfinance as yf
 
-# 忽略警告與紅字
+# 1. 忽略警告與錯誤雜訊
 warnings.simplefilter(action='ignore', category=FutureWarning)
 yf_logger = logging.getLogger('yfinance')
 yf_logger.setLevel(logging.CRITICAL)
@@ -28,7 +28,9 @@ class NpEncoder(json.JSONEncoder):
         elif isinstance(obj, np.bool_): return bool(obj)
         else: return super(NpEncoder, self).default(obj)
 
-# --- 1. 取得清單 ---
+# ==========================================
+# 1. 取得全台股清單
+# ==========================================
 print(f"📥 [1/4] 正在獲取全台股清單 ({datetime.now().strftime('%H:%M:%S')})...")
 
 def get_tw_stock_list():
@@ -57,19 +59,27 @@ def get_tw_stock_list():
     return stock_list
 
 all_stocks = get_tw_stock_list()
-if not all_stocks: all_stocks = [{'id': '2330', 'name': '台積電', 'suffix': '.TW', 'ticker': '2330.TW'}]
+if not all_stocks: 
+    print("⚠️ 清單抓取失敗，使用測試模式。")
+    all_stocks = [{'id': '2330', 'name': '台積電', 'suffix': '.TW', 'ticker': '2330.TW'}]
 print(f"📋 共取得 {len(all_stocks)} 檔股票。")
 
-# --- 2. 批次下載 ---
-print("\n📥 [2/4] 啟動批次股價下載...")
+# ==========================================
+# 2. 批次下載股價 (Batch Download)
+# ==========================================
+print("\n📥 [2/4] 啟動批次股價下載 (Chunk Size: 100)...")
+
 processed_data = {}
 BATCH_SIZE = 100
 chunks = [all_stocks[i:i + BATCH_SIZE] for i in range(0, len(all_stocks), BATCH_SIZE)]
+total_batches = len(chunks)
 
 for i, chunk in enumerate(chunks):
     tickers = [s['ticker'] for s in chunk]
-    sys.stdout.write(f"\r   - 批次 {i+1}/{len(chunks)} (已成功: {len(processed_data)})   ")
+    # 強制刷新進度
+    sys.stdout.write(f"\r   - 批次 {i+1}/{total_batches} (已成功: {len(processed_data)} 檔)   ")
     sys.stdout.flush()
+    
     try:
         data = yf.download(tickers, period="3mo", group_by='ticker', auto_adjust=True, threads=True, progress=False)
         for stock in chunk:
@@ -79,6 +89,7 @@ for i, chunk in enumerate(chunks):
                 else:
                     if t not in data.columns.levels[0]: continue
                     df = data[t]
+                
                 if df.empty or 'Close' not in df.columns or df['Close'].isnull().all(): continue
                 
                 close = df['Close'].dropna().tolist()
@@ -87,74 +98,155 @@ for i, chunk in enumerate(chunks):
                 vol = 0
                 if 'Volume' in df.columns: vol = int(df['Volume'].tail(5).mean() / 1000)
                 
+                # 簡易過濾
+                if vol < 5: continue
+
+                price = round(close[-1], 2)
                 ma20 = sum(close[-20:]) / 20 if len(close) >= 20 else 0
                 
                 processed_data[t] = {
                     "id": stock['id'], "name": stock['name'],
-                    "price": round(close[-1], 2), "vol": vol,
+                    "price": price, "vol": vol,
                     "sparkline": [round(x, 2) for x in close], 
-                    "ma_bull": close[-1] > ma20,
-                    "eps_ttm": 0, "eps_avg": 0, "roe_ttm": 0, "roe_avg": 0, "roa": 0,
-                    "gross_margin": 0, "op_margin": 0, "pe": 0, "pb": 0, "yield": 0,
-                    "rev_growth": 0, "net_growth": 0, "cons_div": 0, "tags": [] 
+                    "ma_bull": price > ma20,
+                    # 初始化欄位
+                    "eps_ttm": 0, "eps_avg": 0, 
+                    "roe_ttm": 0, "roe_avg": 0, "roa": 0,
+                    "gross_margin": 0, "op_margin": 0, 
+                    "pe": 0, "pb": 0, "yield": 0, "yield_avg": 0,
+                    "rev_growth": 0, "net_growth": 0, "cons_div": 0,
+                    "tags": [] 
                 }
             except: continue
     except: pass
 
 print(f"\n✅ 股價獲取完成！有效: {len(processed_data)} 檔")
 
-# --- 3. 財報補充 ---
-print("\n📥 [3/4] 抓取財報 (抗封鎖模式)...")
-def fetch_stats(ticker):
-    time.sleep(random.uniform(0.5, 1.5))
-    try:
-        info = yf.Ticker(ticker).info
-        div = 0
-        if info.get('dividendRate') and info.get('regularMarketPrice'):
-             div = round((info['dividendRate'] / info['regularMarketPrice']) * 100, 2)
-        
-        return {
-            "pe": round(info.get('trailingPE', 0), 2),
-            "pb": round(info.get('priceToBook', 0), 2),
-            "eps_ttm": info.get('trailingEps', 0),
-            "roe_ttm": round(info.get('returnOnEquity', 0) * 100, 2),
-            "roa": round(info.get('returnOnAssets', 0) * 100, 2),
-            "gross_margin": round(info.get('grossMargins', 0) * 100, 2),
-            "op_margin": round(info.get('operatingMargins', 0) * 100, 2),
-            "rev_growth": round(info.get('revenueGrowth', 0) * 100, 2),
-            "yield": div, "cons_div": 1 if div > 0 else 0
-        }
-    except: return None
+# ==========================================
+# 3. 補充完整財報資料 (含配息與殖利率)
+# ==========================================
+print("\n📥 [3/4] 正在抓取詳細財報指標 (抗封鎖模式)...")
+print("   ⚠️ 新增：計算連續配息年份與5年平均殖利率。")
 
-target_keys = list(processed_data.keys())
-done = 0
-with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-    futures = {executor.submit(fetch_stats, t): t for t in target_keys}
-    for i, f in enumerate(concurrent.futures.as_completed(futures)):
-        t = futures[f]
-        if i % 10 == 0:
-            print(f"\r   - 進度: {i+1}/{len(target_keys)} (成功: {done})   ", end="")
+def fetch_detailed_stats(ticker):
+    time.sleep(random.uniform(0.5, 2.0)) # 隨機延遲
+    try:
+        stock = yf.Ticker(ticker)
+        # 嘗試獲取 info
         try:
-            res = f.result()
-            if res:
-                d = processed_data[t]
-                d.update(res)
-                d['eps_avg'] = d['eps_ttm'] # 簡化
-                d['roe_avg'] = d['roe_ttm'] # 簡化
+            info = stock.info
+        except:
+            time.sleep(2)
+            stock = yf.Ticker(ticker)
+            info = stock.info
+
+        # 基本面
+        pe = round(info.get('trailingPE', 0), 2)
+        pb = round(info.get('priceToBook', 0), 2)
+        eps_ttm = info.get('trailingEps', 0)
+        roe_ttm = round(info.get('returnOnEquity', 0) * 100, 2)
+        roa = round(info.get('returnOnAssets', 0) * 100, 2)
+        gross_margin = round(info.get('grossMargins', 0) * 100, 2)
+        op_margin = round(info.get('operatingMargins', 0) * 100, 2)
+        rev_growth = round(info.get('revenueGrowth', 0) * 100, 2)
+        
+        # 殖利率
+        div_yield = 0
+        if info.get('dividendRate') and info.get('regularMarketPrice'):
+             div_yield = round((info['dividendRate'] / info['regularMarketPrice']) * 100, 2)
+        
+        # [新增] 5年平均殖利率 (直接從 info 拿)
+        yield_avg = info.get('fiveYearAvgDividendYield', 0)
+        if yield_avg is None: yield_avg = 0
+        else: yield_avg = round(yield_avg, 2)
+
+        # [新增] 連續配息計算
+        cons_div = 0
+        try:
+            # 抓取 15 年配息紀錄來計算連續配息
+            divs = stock.history(period="15y")['Dividends']
+            if not divs.empty:
+                # 依年份加總
+                yearly_divs = divs.groupby(divs.index.year).sum()
+                current_y = datetime.now().year
+                # 從去年開始往前推 (今年可能還沒配)
+                check_year = current_y - 1
+                # 如果去年沒配，檢查前年 (容許一年空窗期，例如剛好資料還沒更新)
+                if check_year not in yearly_divs.index or yearly_divs.loc[check_year] == 0:
+                    if (check_year - 1) in yearly_divs.index and yearly_divs.loc[check_year - 1] > 0:
+                        check_year -= 1
+                
+                # 開始回推
+                while check_year in yearly_divs.index and yearly_divs.loc[check_year] > 0:
+                    cons_div += 1
+                    check_year -= 1
+        except:
+            # 若抓取失敗，至少看 info 有沒有殖利率，有的話算 1 年
+            if div_yield > 0: cons_div = 1
+
+        return {
+            "pe": pe, "pb": pb, "yield": div_yield, "yield_avg": yield_avg,
+            "eps_ttm": eps_ttm, "eps_avg": eps_ttm, # 暫用 TTM
+            "roe_ttm": roe_ttm, "roe_avg": roe_ttm, # 暫用 TTM
+            "roa": roa, "gross_margin": gross_margin, "op_margin": op_margin,
+            "rev_growth": rev_growth, "cons_div": cons_div
+        }
+    except:
+        return None
+
+tickers_to_enrich = list(processed_data.keys())
+enriched_count = 0
+count = 0
+total = len(tickers_to_enrich)
+MAX_WORKERS = 2 
+start_time = time.time()
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+    future_to_ticker = {executor.submit(fetch_detailed_stats, t): t for t in tickers_to_enrich}
+    
+    for future in concurrent.futures.as_completed(future_to_ticker):
+        t = future_to_ticker[future]
+        count += 1
+        
+        try:
+            stats = future.result()
+            if stats:
+                processed_data[t].update(stats)
                 
                 tags = []
-                if d['yield'] > 5: tags.append("💰高殖利")
-                if d['roe_ttm'] > 15: tags.append("🔥高ROE")
-                if d['rev_growth'] > 20: tags.append("🚀高成長")
-                if d['ma_bull']: tags.append("📈站上月線")
-                d['tags'] = tags
-                done += 1
+                if processed_data[t]['yield'] > 5: tags.append("💰高殖利")
+                if processed_data[t]['cons_div'] >= 10: tags.append("🏆連續配息") # 新增標籤
+                if processed_data[t]['roe_ttm'] > 15: tags.append("🔥高ROE")
+                if processed_data[t]['rev_growth'] > 20: tags.append("🚀高成長")
+                if processed_data[t]['ma_bull']: tags.append("📈站上月線")
+                processed_data[t]['tags'] = tags
+                
+                enriched_count += 1
         except: pass
 
-print(f"\n✅ 財報完成。成功: {done}/{len(processed_data)}")
+        # 進度刷新
+        pct = (count / total) * 100
+        sys.stdout.write(f"\r   - 進度: {count}/{total} ({pct:.1f}%) | 成功獲取: {enriched_count} 檔")
+        sys.stdout.flush()
 
-# --- 4. 生成 HTML ---
-json_db = json.dumps(list(processed_data.values()), cls=NpEncoder, ensure_ascii=False)
+print(f"\n\n✅ 資料獲取作業結束。")
+
+# 轉 JSON
+final_db = list(processed_data.values())
+json_db = json.dumps(final_db, cls=NpEncoder, ensure_ascii=False)
+
+# --- 統計報告 ---
+print("\n" + "="*35)
+print("📊 TW-PocketScreener v1.8 執行報告")
+print("="*35)
+print(f"📋 監測總數 : {len(all_stocks)} 檔")
+print(f"✅ 股價有效 : {len(processed_data)} 檔")
+print(f"💎 財報完整 : {enriched_count} 檔")
+print("="*35 + "\n")
+
+# ==========================================
+# 4. 生成 HTML (v1.8)
+# ==========================================
 update_time = datetime.now().strftime('%Y-%m-%d %H:%M')
 
 html = f"""<!DOCTYPE html>
@@ -162,7 +254,7 @@ html = f"""<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>PocketScreener</title>
+    <title>TW-PocketScreener v1.8</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -187,10 +279,27 @@ html = f"""<!DOCTYPE html>
                 <div class="flex flex-col gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                     <select x-model="newFilter.type" class="w-full p-2.5 rounded-lg border border-slate-300 text-sm font-medium bg-white outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="" disabled selected>選擇指標...</option>
-                        <optgroup label="💰 獲利能力"><option value="roe_avg">5年平均 ROE (%)</option><option value="eps_ttm">近一年 EPS (元)</option><option value="gross_margin">毛利率 (%)</option><option value="op_margin">營業利益率 (%)</option></optgroup>
-                        <optgroup label="📊 估值指標"><option value="yield">現金殖利率 (%)</option><option value="pe">本益比 P/E</option><option value="pb">股價淨值比 P/B</option></optgroup>
-                        <optgroup label="🚀 成長動能"><option value="rev_growth">營收年增率 YoY (%)</option></optgroup>
-                        <optgroup label="📈 技術與籌碼"><option value="vol">成交均量 (張)</option><option value="ma_bull">站上月線 (是/否)</option></optgroup>
+                        <optgroup label="💰 獲利能力">
+                            <option value="roe_avg">5年平均 ROE (%)</option>
+                            <option value="roe_ttm">近一年 ROE (%)</option>
+                            <option value="eps_avg">5年平均 EPS (元)</option>
+                            <option value="eps_ttm">近一年 EPS (元)</option>
+                            <option value="roa">資產報酬率 ROA (%)</option>
+                            <option value="gross_margin">毛利率 (%)</option>
+                            <option value="op_margin">營業利益率 (%)</option>
+                        </optgroup>
+                        <optgroup label="📊 估值與股利">
+                            <option value="yield">現金殖利率 (%)</option>
+                            <option value="yield_avg">5年平均殖利率 (%)</option>
+                            <option value="pe">本益比 P/E</option>
+                            <option value="pb">股價淨值比 P/B</option>
+                        </optgroup>
+                        <optgroup label="🚀 成長與籌碼">
+                            <option value="rev_growth">營收年增率 YoY (%)</option>
+                            <option value="cons_div">連續配發股利 (年)</option>
+                            <option value="vol">成交均量 (張)</option>
+                            <option value="ma_bull">站上月線 (是/否)</option>
+                        </optgroup>
                     </select>
                     <div class="flex gap-2" x-show="newFilter.type !== 'ma_bull'"><select x-model="newFilter.operator" class="w-1/3 p-2.5 rounded-lg border border-slate-300 text-sm bg-white"><option value=">=">大於</option><option value="<=">小於</option></select><input type="number" x-model="newFilter.value" class="w-2/3 p-2.5 rounded-lg border border-slate-300 text-sm" placeholder="數值"></div>
                     <button @click="addFilter()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-lg font-bold text-sm shadow-md transition-colors">加入篩選</button>
@@ -199,7 +308,7 @@ html = f"""<!DOCTYPE html>
         </div>
         <div class="px-4 py-2 flex justify-between items-center border-b border-slate-200 mx-2 pb-2 bg-slate-100">
             <div class="text-sm font-medium text-slate-500">符合: <span x-text="filteredStocks.length"></span> 檔<span x-show="displayCount < filteredStocks.length" class="text-xs text-slate-400 ml-1">(前 <span x-text="displayCount"></span>)</span></div>
-            <div class="flex items-center gap-2"><div class="text-xs text-slate-400">排序:</div><select x-model="sortKey" class="text-sm font-bold text-slate-700 bg-transparent border-none outline-none focus:ring-0 cursor-pointer text-right dir-rtl"><option value="yield">殖利率</option><option value="roe_avg">ROE</option><option value="pe">PE</option><option value="rev_growth">營收成長</option><option value="id">代號</option></select><button @click="sortDesc = !sortDesc" class="p-1.5 bg-white rounded-md border border-slate-200 shadow-sm text-slate-600 active:bg-slate-100"><span x-show="sortDesc">⬇️</span><span x-show="!sortDesc">⬆️</span></button></div>
+            <div class="flex items-center gap-2"><div class="text-xs text-slate-400">排序:</div><select x-model="sortKey" class="text-sm font-bold text-slate-700 bg-transparent border-none outline-none focus:ring-0 cursor-pointer text-right dir-rtl"><option value="yield">殖利率</option><option value="yield_avg">5年殖利</option><option value="cons_div">配息年數</option><option value="roe_avg">ROE</option><option value="pe">PE</option><option value="rev_growth">營收成長</option><option value="id">代號</option></select><button @click="sortDesc = !sortDesc" class="p-1.5 bg-white rounded-md border border-slate-200 shadow-sm text-slate-600 active:bg-slate-100"><span x-show="sortDesc">⬇️</span><span x-show="!sortDesc">⬆️</span></button></div>
         </div>
         <div class="px-3 py-3 space-y-3">
             <template x-for="stock in filteredStocks.slice(0, displayCount)" :key="stock.id">
@@ -212,9 +321,9 @@ html = f"""<!DOCTYPE html>
                     </div>
                     <div class="grid grid-cols-4 gap-1 bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
                         <div :class="sortKey==='roe_avg'?'bg-blue-50 ring-1 ring-blue-200 rounded':''"><div class="text-[10px] text-slate-400">ROE</div><div class="font-bold text-sm text-blue-600" x-text="stock.roe_avg!=0?stock.roe_avg+'%':'-'"></div></div>
+                        <div :class="sortKey==='yield_avg'?'bg-emerald-50 ring-1 ring-emerald-200 rounded':''"><div class="text-[10px] text-slate-400">5年殖利</div><div class="font-bold text-sm text-emerald-600" x-text="stock.yield_avg>0?stock.yield_avg+'%':'-'"></div></div>
                         <div class="border-l border-slate-200"><div class="text-[10px] text-slate-400">EPS</div><div class="font-bold text-sm text-purple-600" x-text="stock.eps_ttm!=0?stock.eps_ttm:'-'"></div></div>
-                        <div class="border-l border-slate-200"><div class="text-[10px] text-slate-400">毛利率</div><div class="font-bold text-sm text-slate-700" x-text="stock.gross_margin!=0?stock.gross_margin+'%':'-'"></div></div>
-                        <div class="border-l border-slate-200"><div class="text-[10px] text-slate-400">成交量</div><div class="font-bold text-sm text-amber-600" x-text="stock.vol"></div></div>
+                        <div class="border-l border-slate-200" :class="sortKey==='cons_div'?'bg-amber-50 ring-1 ring-amber-200 rounded':''"><div class="text-[10px] text-slate-400">配息年</div><div class="font-bold text-sm text-amber-600" x-text="stock.cons_div"></div></div>
                     </div>
                 </div>
             </template>
@@ -224,7 +333,7 @@ html = f"""<!DOCTYPE html>
     <script>
         function app() {{
             return {{
-                stocks: {json_db}, filters: [], newFilter: {{ type: 'roe_avg', operator: '>=', value: 10 }}, showFilter: true, sortKey: 'yield', sortDesc: true, displayCount: 20,
+                stocks: {json_db}, filters: [], newFilter: {{ type: 'yield_avg', operator: '>=', value: 5 }}, showFilter: true, sortKey: 'yield', sortDesc: true, displayCount: 20,
                 get filteredStocks() {{
                     let res = this.stocks;
                     if (this.filters.length > 0) {{
@@ -236,7 +345,7 @@ html = f"""<!DOCTYPE html>
                     }}
                     return res.sort((a, b) => (this.sortDesc ? (b[this.sortKey] || -999) - (a[this.sortKey] || -999) : (a[this.sortKey] || -999) - (b[this.sortKey] || -999)));
                 }},
-                getLabel(f) {{ const map = {{ 'roe_avg': 'ROE', 'eps_ttm': 'EPS', 'gross_margin': '毛利率', 'yield': '殖利率', 'pe': 'PE', 'pb': 'PB', 'rev_growth': '營收YoY', 'vol': '成交量', 'ma_bull': '站上月線' }}; return f.type === 'ma_bull' ? map[f.type] : `${{map[f.type]}} ${{f.operator}} ${{f.value}}`; }},
+                getLabel(f) {{ const map = {{ 'roe_avg': 'ROE', 'eps_ttm': 'EPS', 'eps_avg': '5年EPS', 'gross_margin': '毛利率', 'yield': '殖利率', 'yield_avg': '5年殖利', 'pe': 'PE', 'pb': 'PB', 'rev_growth': '營收YoY', 'vol': '成交量', 'ma_bull': '站上月線', 'cons_div': '連續配息' }}; return f.type === 'ma_bull' ? map[f.type] : `${{map[f.type]}} ${{f.operator}} ${{f.value}}`; }},
                 addFilter() {{ if (this.newFilter.type) this.filters.push(this.newFilter.type === 'ma_bull' ? {{ type: 'ma_bull', operator: '=', value: 0 }} : {{ ...this.newFilter }}); this.displayCount = 20; }},
                 removeFilter(i) {{ this.filters.splice(i, 1); }},
                 getSparklinePath(d) {{ if (!d.length) return ""; const w=100, h=30, min=Math.min(...d), max=Math.max(...d), r=max-min||1, sx=w/(d.length-1); return d.map((p,i)=>`${{i==0?'M':'L'}} ${{i*sx}} ${{h-((p-min)/r)*h}}`).join(' '); }},
