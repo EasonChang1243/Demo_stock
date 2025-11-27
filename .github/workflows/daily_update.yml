@@ -37,4 +37,6 @@ jobs:
         git add index.html
         # 如果有更新才提交，避免錯誤
         git commit -m "Auto-update stock data $(date)" || exit 0
+        # 🔥 新增這行：上傳前先同步最新版本，解決衝突
+        git pull --rebase
         git push
