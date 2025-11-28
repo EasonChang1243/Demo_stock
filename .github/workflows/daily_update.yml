@@ -6,7 +6,6 @@ on:
     - cron: '0 8 * * *'
   workflow_dispatch: # 允許手動點擊按鈕執行
 
-# 給予寫入權限 (重要)
 permissions:
   contents: write
 
@@ -33,11 +32,23 @@ jobs:
       run: |
         python main.py
 
-    # 🔥 這是新的「智慧上傳套件」，它會取代舊的 git 指令
-    # 如果您在 Log 裡看到 "git config..." 代表這段沒生效，請重新貼上
+    # 🔥 修正：改回使用原生 Git 指令，並加入 pull --rebase 防止衝突與超時
     - name: Commit and Push changes
-      uses: stefanzweifel/git-auto-commit-action@v5
-      with:
-        commit_message: Auto-update stock data
-        file_pattern: index.html
-        branch: main
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add index.html
+        
+        # 檢查是否有變更，沒變更就不執行 Commit (避免報錯)
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+          exit 0
+        fi
+        
+        git commit -m "Auto-update stock data $(date)"
+        
+        # 關鍵：上傳前先同步，解決多人編輯造成的衝突
+        git pull --rebase
+        
+        # 嘗試上傳
+        git push
