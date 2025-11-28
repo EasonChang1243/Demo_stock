@@ -1,7 +1,7 @@
-# @title 🚀 TW-PocketScreener V2.1.1 (語法修復版)
-# @markdown 🔧 **修正：AttributeError: 'dict' object has no attribute 'id'。**
-# @markdown 📝 **原因：修復 Python f-string 與 JavaScript 模板語法的衝突。**
-# @markdown 🏆 **功能：完整保留 V2.1 所有功能 (一鍵存股、個股連結、深層挖掘)。**
+# @title 🚀 TW-PocketScreener V2.2 (存股濾鏡版)
+# @markdown 🛡️ **新增三道護城河濾鏡：本業純度、毛利穩定度、盈餘發放率。**
+# @markdown 🏆 **升級：一鍵存股按鈕現在會同時檢核 8 大指標，標準極其嚴格。**
+# @markdown ⏳ **預計耗時：約 40~60 分鐘 (需讀取歷史財報計算穩定度)。**
 
 import subprocess
 import sys
@@ -137,11 +137,16 @@ for i, chunk in enumerate(chunks):
                     "price": price, "vol": vol,
                     "sparkline": [round(x, 2) for x in close], 
                     "ma_bull": price > ma20,
+                    # 指標初始化
                     "eps_ttm": 0, "eps_avg": 0, 
                     "roe_ttm": 0, "roe_avg": 0, "roa": 0,
                     "gross_margin": 0, "op_margin": 0, 
                     "pe": 0, "pb": 0, "yield": 0, "yield_avg": 0,
-                    "rev_growth": 0, "net_growth": 0, "cons_div": 0,
+                    "rev_growth": 0, "cons_div": 0,
+                    # V2.2 新增欄位
+                    "core_purity": 0, # 本業純度
+                    "gm_stability": 999, # 毛利穩定度 (預設大值)
+                    "payout_ratio": 0, # 盈餘發放率
                     "tags": [] 
                 }
             except: continue
@@ -150,10 +155,10 @@ for i, chunk in enumerate(chunks):
 print(f"\n✅ 股價獲取完成！有效: {len(processed_data)} 檔")
 
 # ==========================================
-# 3. 深層挖掘財報
+# 3. 深層挖掘財報 (新增: 純度、穩定度、發放率)
 # ==========================================
-print("\n📥 [3/4] 正在深層挖掘財報數據 (計算精確 5年 EPS/ROE)...")
-print("   ⚠️ 預計需 40~60 分鐘，請耐心等待。")
+print("\n📥 [3/4] 正在深層挖掘財報數據 (含V2.2新增濾鏡)...")
+print("   ⚠️ 需計算3年毛利變動與本業比重，預計需 40~60 分鐘。")
 
 def fetch_deep_stats(ticker):
     time.sleep(random.uniform(1.0, 3.0))
@@ -167,6 +172,7 @@ def fetch_deep_stats(ticker):
             stock = yf.Ticker(ticker)
             info = stock.info
 
+        # 基本資料
         pe = round(info.get('trailingPE', 0), 2)
         pb = round(info.get('priceToBook', 0), 2)
         eps_ttm = info.get('trailingEps', 0)
@@ -176,6 +182,10 @@ def fetch_deep_stats(ticker):
         op_margin = round(info.get('operatingMargins', 0) * 100, 2)
         rev_growth = round(info.get('revenueGrowth', 0) * 100, 2)
         
+        # [V2.2] 盈餘發放率
+        payout_ratio = round(info.get('payoutRatio', 0) * 100, 2) if info.get('payoutRatio') else 0
+
+        # 殖利率
         div_yield = 0
         if info.get('dividendRate') and info.get('regularMarketPrice'):
              div_yield = round((info['dividendRate'] / info['regularMarketPrice']) * 100, 2)
@@ -184,21 +194,55 @@ def fetch_deep_stats(ticker):
         if yield_avg is None: yield_avg = 0
         else: yield_avg = round(yield_avg, 2)
 
-        eps_avg = 0
+        # 準備深入 Income Statement
         income = pd.DataFrame()
         try:
             income = stock.income_stmt
-            if not income.empty:
-                if 'Basic EPS' in income.index:
-                    eps_series = income.loc['Basic EPS']
-                    recent_eps = eps_series.head(5).dropna()
-                    if len(recent_eps) > 0: eps_avg = round(recent_eps.mean(), 2)
-                elif 'Diluted EPS' in income.index:
-                    eps_series = income.loc['Diluted EPS']
-                    recent_eps = eps_series.head(5).dropna()
-                    if len(recent_eps) > 0: eps_avg = round(recent_eps.mean(), 2)
-        except: eps_avg = eps_ttm
+        except: pass
 
+        # 1. 計算 5 年平均 EPS
+        eps_avg = 0
+        if not income.empty:
+            try:
+                if 'Basic EPS' in income.index:
+                    eps_series = income.loc['Basic EPS'].head(5).dropna()
+                    if len(eps_series) > 0: eps_avg = round(eps_series.mean(), 2)
+                elif 'Diluted EPS' in income.index:
+                    eps_series = income.loc['Diluted EPS'].head(5).dropna()
+                    if len(eps_series) > 0: eps_avg = round(eps_series.mean(), 2)
+            except: eps_avg = eps_ttm
+        else: eps_avg = eps_ttm
+
+        # 2. [V2.2] 計算本業純度 (營業利益 / 稅前淨利)
+        core_purity = 0
+        if not income.empty:
+            try:
+                # 取最近一年
+                op_inc = income.loc['Operating Income'].iloc[0]
+                pretax = income.loc['Pretax Income'].iloc[0]
+                if pretax > 0:
+                    core_purity = round((op_inc / pretax) * 100, 2)
+            except: pass
+
+        # 3. [V2.2] 計算獲利穩定度 (近3年毛利率變動幅度)
+        gm_stability = 999 # 預設失敗
+        if not income.empty:
+            try:
+                # 需同時有 Gross Profit 和 Total Revenue
+                gp_rows = income.loc['Gross Profit'].head(3)
+                rev_rows = income.loc['Total Revenue'].head(3)
+                
+                if len(gp_rows) >= 3 and len(rev_rows) >= 3:
+                    margins = []
+                    for i in range(3):
+                        if rev_rows.iloc[i] > 0:
+                            margins.append((gp_rows.iloc[i] / rev_rows.iloc[i]) * 100)
+                    
+                    if len(margins) == 3:
+                        gm_stability = round(max(margins) - min(margins), 2)
+            except: pass
+
+        # 4. 計算 5 年平均 ROE
         roe_avg = 0
         try:
             bs = stock.balance_sheet
@@ -214,6 +258,7 @@ def fetch_deep_stats(ticker):
         except: pass
         if roe_avg == 0: roe_avg = roe_ttm
 
+        # 5. 計算連續配息
         cons_div = 0
         try:
             divs = stock.history(period="15y")['Dividends']
@@ -235,7 +280,8 @@ def fetch_deep_stats(ticker):
             "eps_ttm": eps_ttm, "eps_avg": eps_avg, 
             "roe_ttm": roe_ttm, "roe_avg": roe_avg, 
             "roa": roa, "gross_margin": gross_margin, "op_margin": op_margin,
-            "rev_growth": rev_growth, "cons_div": cons_div
+            "rev_growth": rev_growth, "cons_div": cons_div,
+            "core_purity": core_purity, "gm_stability": gm_stability, "payout_ratio": payout_ratio
         }
     except:
         return None
@@ -269,13 +315,18 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                 processed_data[t].update(stats)
                 
                 tags = []
+                # V2.2 黃金存股 8 大法則
                 is_golden = (processed_data[t]['eps_ttm'] >= 1 and 
                              processed_data[t]['eps_avg'] >= 2 and
                              processed_data[t]['yield_avg'] >= 5 and
                              processed_data[t]['cons_div'] >= 10 and
-                             processed_data[t]['roe_avg'] >= 15)
+                             processed_data[t]['roe_avg'] >= 15 and
+                             processed_data[t]['core_purity'] >= 80 and
+                             processed_data[t]['gm_stability'] <= 5 and
+                             processed_data[t]['payout_ratio'] >= 60 and processed_data[t]['payout_ratio'] <= 100)
                              
                 if is_golden: tags.append("🏆黃金存股")
+                
                 if processed_data[t]['yield'] > 5: tags.append("💰高殖利")
                 if processed_data[t]['roe_avg'] > 15: tags.append("🔥高ROE")
                 if processed_data[t]['ma_bull']: tags.append("📈站上月線")
@@ -295,7 +346,7 @@ except Exception as e:
 
 # --- 最終統計報告 ---
 print("\n" + "="*35)
-print("📊 TW-PocketScreener V2.1.1 執行報告")
+print("📊 TW-PocketScreener V2.2 執行報告")
 print("="*35)
 print(f"📋 監測總數 : {len(all_stocks)} 檔")
 print(f"✅ 股價有效 : {len(processed_data)} 檔")
@@ -303,17 +354,16 @@ print(f"💎 財報完整 : {enriched_count} 檔")
 print("="*35 + "\n")
 
 # ==========================================
-# 4. 生成 HTML (V2.1.1)
+# 4. 生成 HTML (V2.2)
 # ==========================================
 update_time = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
 
-# 🔥 修正點：${stock.id} 改為 ${{stock.id}}，避免 Python f-string 誤判
 html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TW-PocketScreener V2.1</title>
+    <title>TW-PocketScreener V2.2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
@@ -327,7 +377,7 @@ html = f"""<!DOCTYPE html>
         </div>
         <div class="flex flex-col items-end">
             <div class="text-[10px] text-slate-400">更新: {update_time}</div>
-            <div class="text-[10px] font-mono text-white bg-green-600 px-1.5 rounded">V2.1</div>
+            <div class="text-[10px] font-mono text-white bg-green-600 px-1.5 rounded">V2.2</div>
         </div>
     </header>
     <main class="flex-1 overflow-y-auto no-scrollbar pb-32">
@@ -339,18 +389,21 @@ html = f"""<!DOCTYPE html>
             <div x-show="showFilter" class="p-4 pt-2">
                 <button @click="applyDepositStrategy()" class="w-full mb-4 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-white py-3 rounded-lg font-bold text-md shadow-lg flex items-center justify-center gap-2 transition-all transform active:scale-95">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path></svg>
-                    一鍵套用「黃金存股 5 法則」
+                    一鍵套用「黃金存股 8 法則」
                 </button>
                 <div class="flex flex-wrap gap-2 mb-4 min-h-[30px]"><template x-for="(filter, index) in filters" :key="index"><div class="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-full border border-blue-100 text-sm shadow-sm"><span class="font-medium" x-text="getLabel(filter)"></span><button @click="removeFilter(index)" class="ml-1 text-blue-400 hover:text-blue-800 font-bold">×</button></div></template></div>
                 <div class="flex flex-col gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                     <select x-model="newFilter.type" class="w-full p-2.5 rounded-lg border border-slate-300 text-sm font-medium bg-white outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="" disabled selected>選擇指標...</option>
-                        <optgroup label="💰 存股 5 法則">
+                        <optgroup label="💰 黃金存股 8 法則">
                             <option value="eps_ttm">近一年 EPS (元)</option>
                             <option value="eps_avg">5年平均 EPS (元)</option>
                             <option value="yield_avg">5年平均殖利率 (%)</option>
                             <option value="cons_div">連續配發股利 (年)</option>
                             <option value="roe_avg">5年平均 ROE (%)</option>
+                            <option value="core_purity">本業純度 (%)</option>
+                            <option value="gm_stability">毛利變動度 (%)</option>
+                            <option value="payout_ratio">盈餘發放率 (%)</option>
                         </optgroup>
                         <optgroup label="📊 其他指標">
                             <option value="yield">現金殖利率 (%)</option>
@@ -374,7 +427,8 @@ html = f"""<!DOCTYPE html>
                     <option value="yield_avg">5年平均殖利率</option>
                     <option value="roe_avg">5年平均 ROE</option>
                     <option value="eps_avg">5年平均 EPS</option>
-                    <option value="cons_div">連續配息年數</option>
+                    <option value="core_purity">本業純度</option>
+                    <option value="cons_div">配息年數</option>
                     <option value="yield">目前殖利率</option>
                     <option value="id">股票代號</option>
                 </select>
@@ -400,7 +454,7 @@ html = f"""<!DOCTYPE html>
                     <div class="grid grid-cols-4 gap-1 bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
                         <div :class="sortKey==='roe_avg'?'bg-blue-50 ring-1 ring-blue-200 rounded':''"><div class="text-[10px] text-slate-400">5年ROE</div><div class="font-bold text-sm text-blue-600" x-text="stock.roe_avg!=0?stock.roe_avg+'%':'-'"></div></div>
                         <div :class="sortKey==='yield_avg'?'bg-emerald-50 ring-1 ring-emerald-200 rounded':''"><div class="text-[10px] text-slate-400">5年殖利</div><div class="font-bold text-sm text-emerald-600" x-text="stock.yield_avg>0?stock.yield_avg+'%':'-'"></div></div>
-                        <div :class="sortKey==='eps_avg'?'bg-purple-50 ring-1 ring-purple-200 rounded':''"><div class="text-[10px] text-slate-400">5年EPS</div><div class="font-bold text-sm text-purple-600" x-text="stock.eps_avg!=0?stock.eps_avg:'-'"></div></div>
+                        <div :class="sortKey==='core_purity'?'bg-purple-50 ring-1 ring-purple-200 rounded':''"><div class="text-[10px] text-slate-400">本業純度</div><div class="font-bold text-sm text-purple-600" x-text="stock.core_purity!=0?stock.core_purity+'%':'-'"></div></div>
                         <div :class="sortKey==='cons_div'?'bg-amber-50 ring-1 ring-amber-200 rounded':''"><div class="text-[10px] text-slate-400">配息年</div><div class="font-bold text-sm text-amber-600" x-text="stock.cons_div"></div></div>
                     </div>
                 </div>
@@ -419,11 +473,15 @@ html = f"""<!DOCTYPE html>
                         {{ type: 'eps_avg', operator: '>=', value: 2 }},   
                         {{ type: 'yield_avg', operator: '>=', value: 5 }}, 
                         {{ type: 'cons_div', operator: '>=', value: 10 }}, 
-                        {{ type: 'roe_avg', operator: '>=', value: 15 }}   
+                        {{ type: 'roe_avg', operator: '>=', value: 15 }},
+                        {{ type: 'core_purity', operator: '>=', value: 80 }},
+                        {{ type: 'gm_stability', operator: '<=', value: 5 }},
+                        {{ type: 'payout_ratio', operator: '>=', value: 60 }},
+                        {{ type: 'payout_ratio', operator: '<=', value: 100 }}
                     ];
                     this.sortKey = 'yield_avg';
                     this.displayCount = 20;
-                    alert('✅ 已套用「黃金存股 5 法則」！');
+                    alert('✅ 已套用「黃金存股 8 法則」！(含純度/穩定度/發放率)');
                 }},
 
                 get filteredStocks() {{
@@ -437,7 +495,7 @@ html = f"""<!DOCTYPE html>
                     }}
                     return res.sort((a, b) => (this.sortDesc ? (b[this.sortKey] || -999) - (a[this.sortKey] || -999) : (a[this.sortKey] || -999) - (b[this.sortKey] || -999)));
                 }},
-                getLabel(f) {{ const map = {{ 'roe_avg': '5年ROE', 'eps_ttm': 'EPS', 'eps_avg': '5年EPS', 'gross_margin': '毛利率', 'yield': '殖利率', 'yield_avg': '5年殖利', 'pe': 'PE', 'pb': 'PB', 'rev_growth': '營收YoY', 'vol': '成交量', 'ma_bull': '站上月線', 'cons_div': '連續配息' }}; return f.type === 'ma_bull' ? map[f.type] : `${{map[f.type]}} ${{f.operator}} ${{f.value}}`; }},
+                getLabel(f) {{ const map = {{ 'roe_avg': '5年ROE', 'eps_ttm': 'EPS', 'eps_avg': '5年EPS', 'gross_margin': '毛利率', 'yield': '殖利率', 'yield_avg': '5年殖利', 'pe': 'PE', 'pb': 'PB', 'rev_growth': '營收YoY', 'vol': '成交量', 'ma_bull': '站上月線', 'cons_div': '連續配息', 'core_purity': '本業純度', 'gm_stability': '毛利變動', 'payout_ratio': '發放率' }}; return f.type === 'ma_bull' ? map[f.type] : `${{map[f.type]}} ${{f.operator}} ${{f.value}}`; }},
                 addFilter() {{ if (this.newFilter.type) this.filters.push(this.newFilter.type === 'ma_bull' ? {{ type: 'ma_bull', operator: '=', value: 0 }} : {{ ...this.newFilter }}); this.displayCount = 20; }},
                 removeFilter(i) {{ this.filters.splice(i, 1); }},
                 getSparklinePath(d) {{ if (!d.length) return ""; const w=100, h=30, min=Math.min(...d), max=Math.max(...d), r=max-min||1, sx=w/(d.length-1); return d.map((p,i)=>`${{i==0?'M':'L'}} ${{i*sx}} ${{h-((p-min)/r)*h}}`).join(' '); }},
