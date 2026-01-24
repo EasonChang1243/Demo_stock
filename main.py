@@ -1,7 +1,7 @@
-# @title 🚀 TW-PocketScreener V2.3.1 (數據追蹤版)
-# @markdown 📊 **新增：整合 Google Analytics (G-FCJHY24Z2K) 流量分析功能。**
+# @title 🚀 TW-PocketScreener V2.3.2 (流量變現版)
+# @markdown 💰 **新增：整合 Google AdSense (ca-pub-3682384993858973) 廣告代碼。**
+# @markdown 📊 **保留：Google Analytics (GA4) 流量追蹤。**
 # @markdown 🎓 **功能：包含 V2.3 的大師導覽頁面與 V2.2 的所有選股濾鏡。**
-# @markdown 🔧 **技術：解決 Python f-string 與 GA4 JavaScript 語法衝突問題。**
 
 import subprocess
 import sys
@@ -325,7 +325,7 @@ except Exception as e:
 
 # --- 最終統計報告 ---
 print("\n" + "="*35)
-print("📊 TW-PocketScreener V2.3.1 執行報告")
+print("📊 TW-PocketScreener V2.3.2 執行報告")
 print("="*35)
 print(f"📋 監測總數 : {len(all_stocks)} 檔")
 print(f"✅ 股價有效 : {len(processed_data)} 檔")
@@ -333,11 +333,11 @@ print(f"💎 財報完整 : {enriched_count} 檔")
 print("="*35 + "\n")
 
 # ==========================================
-# 4. 生成 HTML (V2.3.1)
+# 4. 生成 HTML (V2.3.2)
 # ==========================================
 update_time = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
 
-# 🔥 重點：將 GA4 程式碼定義為獨立變數，避開 F-String 的 {} 衝突
+# 🔥 1. GA4 程式碼
 ga_code = """
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCJHY24Z2K"></script>
 <script>
@@ -349,11 +349,18 @@ ga_code = """
 </script>
 """
 
-# HTML 生成 (注入 ga_code)
+# 🔥 2. AdSense 程式碼 (新增)
+adsense_code = """
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3682384993858973"
+     crossorigin="anonymous"></script>
+"""
+
+# HTML 生成 (注入 ga_code 與 adsense_code)
 html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
     {ga_code}
+    {adsense_code}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TW-PocketScreener V2.3 - 存股大師版</title>
@@ -502,7 +509,7 @@ html = f"""<!DOCTYPE html>
             </div>
             <div class="flex flex-col items-end">
                 <div class="text-[10px] text-slate-400">更新: {update_time}</div>
-                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.3.1</div>
+                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.3.2</div>
             </div>
         </header>
 
