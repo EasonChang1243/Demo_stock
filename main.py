@@ -1,8 +1,7 @@
-# @title 🚀 TW-PocketScreener V2.3 (大師導覽版)
-# @markdown 🎓 **新增：整合「黃金投資法則」歡迎教育頁面。**
-# @markdown 🔄 **機制：單一 HTML 檔案，前端切換「教學模式」與「選股模式」。**
-# @markdown 🏆 **功能：完整保留 V2.2 所有篩選功能與 V2.2.1 的語法修正。**
-# @markdown ⏳ **預計耗時：約 40~60 分鐘 (需抓取全台股數據)。**
+# @title 🚀 TW-PocketScreener V2.3.1 (數據追蹤版)
+# @markdown 📊 **新增：整合 Google Analytics (G-FCJHY24Z2K) 流量分析功能。**
+# @markdown 🎓 **功能：包含 V2.3 的大師導覽頁面與 V2.2 的所有選股濾鏡。**
+# @markdown 🔧 **技術：解決 Python f-string 與 GA4 JavaScript 語法衝突問題。**
 
 import subprocess
 import sys
@@ -296,6 +295,7 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                 processed_data[t].update(stats)
                 
                 tags = []
+                # V2.2 黃金存股 8 大法則
                 is_golden = (processed_data[t]['eps_ttm'] >= 1 and 
                              processed_data[t]['eps_avg'] >= 2 and
                              processed_data[t]['yield_avg'] >= 5 and
@@ -325,7 +325,7 @@ except Exception as e:
 
 # --- 最終統計報告 ---
 print("\n" + "="*35)
-print("📊 TW-PocketScreener V2.3 執行報告")
+print("📊 TW-PocketScreener V2.3.1 執行報告")
 print("="*35)
 print(f"📋 監測總數 : {len(all_stocks)} 檔")
 print(f"✅ 股價有效 : {len(processed_data)} 檔")
@@ -333,13 +333,27 @@ print(f"💎 財報完整 : {enriched_count} 檔")
 print("="*35 + "\n")
 
 # ==========================================
-# 4. 生成 HTML (V2.3: 雙視圖整合版)
+# 4. 生成 HTML (V2.3.1)
 # ==========================================
 update_time = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
 
+# 🔥 重點：將 GA4 程式碼定義為獨立變數，避開 F-String 的 {} 衝突
+ga_code = """
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCJHY24Z2K"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-FCJHY24Z2K');
+</script>
+"""
+
+# HTML 生成 (注入 ga_code)
 html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+    {ga_code}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TW-PocketScreener V2.3 - 存股大師版</title>
@@ -488,7 +502,7 @@ html = f"""<!DOCTYPE html>
             </div>
             <div class="flex flex-col items-end">
                 <div class="text-[10px] text-slate-400">更新: {update_time}</div>
-                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.3</div>
+                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.3.1</div>
             </div>
         </header>
 
