@@ -1,9 +1,22 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+    
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCJHY24Z2K"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-FCJHY24Z2K');
+</script>
+
+    
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3682384993858973"
+     crossorigin="anonymous"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TW-PocketScreener V2.3 - 存股大師版</title>
+    <title>TW-PocketScreener V2.4 - 存股大師版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js" defer></script>
@@ -127,12 +140,48 @@
             </div>
         </section>
         
-        <footer class="bg-slate-900 text-slate-500 py-10 border-t border-slate-800">
-            <div class="max-w-4xl mx-auto px-4 text-center space-y-4">
-                <h2 class="text-white font-bold text-lg">黃金投資法則教學網</h2>
-                <p class="text-sm max-w-lg mx-auto">免責聲明：本網頁所有數據與計算結果僅供模擬教學使用，不代表未來實際獲利。</p>
+        <footer class="py-10 text-center">
+            <p class="text-xs text-slate-400 mb-2">© 2026 Eason Chang. All rights reserved.</p>
+            <div class="flex justify-center items-center gap-2 text-xs text-slate-400">
+                <button onclick="enterPrivacy()" class="hover:text-slate-600 transition-colors">隱私權政策</button>
+                <span>|</span>
+                <a href="mailto:taco1243@gmail.com" class="hover:text-slate-600 transition-colors">聯絡我們</a>
             </div>
         </footer>
+    </div>
+
+    <div id="privacy-view" class="flex-1 overflow-y-auto hidden bg-white p-8 md:p-12 privacy-content">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-3xl font-bold mb-6">隱私權政策 (Privacy Policy)</h1>
+            <p>最後更新日期：2026 年 1 月 24 日</p>
+            <p>歡迎您使用 TW-PocketScreener（以下簡稱本網站）。本網站非常重視您的個人隱私，並遵守相關法律規定。以下說明本網站如何收集、使用及保護您的資料。</p>
+
+            <h2>1. Google AdSense 與 Cookie 的使用</h2>
+            <p>本網站使用 Google AdSense 服務來顯示廣告。Google 作為第三方供應商，會使用 Cookie 來在本網站上投放廣告。</p>
+            <ul>
+                <li>Google 使用 <strong>DART Cookie</strong>，這使得 Google 及其合作夥伴能夠根據您訪問本網站及網際網路上其他網站的紀錄，向您顯示合適的廣告。</li>
+                <li>使用者可以訪問 <a href="https://policies.google.com/technologies/ads" target="_blank">Google 廣告和內容聯播網隱私權政策</a> 頁面，選擇停用 DART Cookie 的使用。</li>
+            </ul>
+
+            <h2>2. 記錄檔 (Log Files)</h2>
+            <p>像許多其他網站一樣，本網站可能會使用記錄檔。這些檔案僅記錄訪客來到網站時的資訊（這也是託管服務的標準程序）。記錄的資訊包括網際網路協定 (IP) 位址、瀏覽器類型、網際網路服務供應商 (ISP)、日期/時間戳記、參考/退出頁面，以及可能的點擊次數。這些資訊用於分析趨勢、管理網站、追蹤使用者在網站上的活動，以及收集人口統計資訊。IP 位址和其他此類資訊不會連結到任何可識別個人身分的資訊。</p>
+
+            <h2>3. 第三方隱私權政策</h2>
+            <p>本網站的隱私權政策不適用於其他廣告商或網站。因此，我們建議您查閱這些第三方廣告伺服器各自的隱私權政策，以獲取更詳細的資訊。其中可能包括他們的實務操作以及關於如何退出某些選項的說明。</p>
+
+            <h2>4. 兒童資訊 (Children's Information)</h2>
+            <p>保護兒童使用網際網路是我們的首要任務之一。我們鼓勵父母和監護人觀察、參與和/或監控並指導孩子的線上活動。本網站不會有意收集 13 歲以下兒童的任何個人識別資訊。</p>
+
+            <h2>5. 同意條款</h2>
+            <p>使用本網站即表示您同意我們的隱私權政策並同意其條款。</p>
+
+            <h2>6. 聯絡我們</h2>
+            <p>如果您對我們的隱私權政策有任何疑問，歡迎透過電子郵件與我們聯繫：<a href="mailto:taco1243@gmail.com">taco1243@gmail.com</a></p>
+
+            <button onclick="exitPrivacy()" class="mt-8 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-8 rounded-lg transition-colors flex items-center gap-2">
+                <i data-lucide="arrow-left"></i> 返回首頁
+            </button>
+        </div>
     </div>
 
     <div id="screener-view" class="flex-1 flex flex-col hidden h-screen" x-data="app()">
@@ -148,8 +197,8 @@
                 </div>
             </div>
             <div class="flex flex-col items-end">
-                <div class="text-[10px] text-slate-400">更新: 2026-01-24 17:37</div>
-                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.3</div>
+                <div class="text-[10px] text-slate-400">更新: 2026-01-25 01:30</div>
+                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.4.1</div>
             </div>
         </header>
 
@@ -312,11 +361,24 @@
         // --- NAVIGATION LOGIC ---
         function enterScreener() {
             document.getElementById('welcome-view').classList.add('hidden');
+            document.getElementById('privacy-view').classList.add('hidden');
             document.getElementById('screener-view').classList.remove('hidden');
             window.scrollTo(0,0);
         }
         function exitScreener() {
             document.getElementById('screener-view').classList.add('hidden');
+            document.getElementById('privacy-view').classList.add('hidden');
+            document.getElementById('welcome-view').classList.remove('hidden');
+            window.scrollTo(0,0);
+        }
+        function enterPrivacy() {
+            document.getElementById('welcome-view').classList.add('hidden');
+            document.getElementById('screener-view').classList.add('hidden');
+            document.getElementById('privacy-view').classList.remove('hidden');
+            window.scrollTo(0,0);
+        }
+        function exitPrivacy() {
+            document.getElementById('privacy-view').classList.add('hidden');
             document.getElementById('welcome-view').classList.remove('hidden');
             window.scrollTo(0,0);
         }
