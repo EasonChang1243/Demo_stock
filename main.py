@@ -1,7 +1,8 @@
-# @title 🚀 TW-PocketScreener V2.3.2 (流量變現版)
-# @markdown 💰 **新增：整合 Google AdSense (ca-pub-3682384993858973) 廣告代碼。**
-# @markdown 📊 **保留：Google Analytics (GA4) 流量追蹤。**
-# @markdown 🎓 **功能：包含 V2.3 的大師導覽頁面與 V2.2 的所有選股濾鏡。**
+# @title 🚀 TW-PocketScreener V2.4 (完整合規版)
+# @markdown 🛡️ **新增：整合隱私權政策 (Privacy Policy) 與聯絡資訊頁面。**
+# @markdown 💰 **保留：Google AdSense (ca-pub-3682384993858973) 廣告代碼。**
+# @markdown 📊 **保留：Google Analytics (G-FCJHY24Z2K) 流量追蹤。**
+# @markdown 🏆 **功能：包含 V2.3 的大師導覽頁面與 V2.2 的所有選股濾鏡。**
 
 import subprocess
 import sys
@@ -295,7 +296,6 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                 processed_data[t].update(stats)
                 
                 tags = []
-                # V2.2 黃金存股 8 大法則
                 is_golden = (processed_data[t]['eps_ttm'] >= 1 and 
                              processed_data[t]['eps_avg'] >= 2 and
                              processed_data[t]['yield_avg'] >= 5 and
@@ -325,7 +325,7 @@ except Exception as e:
 
 # --- 最終統計報告 ---
 print("\n" + "="*35)
-print("📊 TW-PocketScreener V2.3.2 執行報告")
+print("📊 TW-PocketScreener V2.4 執行報告")
 print("="*35)
 print(f"📋 監測總數 : {len(all_stocks)} 檔")
 print(f"✅ 股價有效 : {len(processed_data)} 檔")
@@ -333,29 +333,25 @@ print(f"💎 財報完整 : {enriched_count} 檔")
 print("="*35 + "\n")
 
 # ==========================================
-# 4. 生成 HTML (V2.3.2)
+# 4. 生成 HTML (V2.4)
 # ==========================================
 update_time = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
 
-# 🔥 1. GA4 程式碼
 ga_code = """
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCJHY24Z2K"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-
   gtag('config', 'G-FCJHY24Z2K');
 </script>
 """
 
-# 🔥 2. AdSense 程式碼 (新增)
 adsense_code = """
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3682384993858973"
      crossorigin="anonymous"></script>
 """
 
-# HTML 生成 (注入 ga_code 與 adsense_code)
 html = f"""<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -363,7 +359,7 @@ html = f"""<!DOCTYPE html>
     {adsense_code}
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TW-PocketScreener V2.3 - 存股大師版</title>
+    <title>TW-PocketScreener V2.4 - 存股大師版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js" defer></script>
@@ -491,8 +487,45 @@ html = f"""<!DOCTYPE html>
             <div class="max-w-4xl mx-auto px-4 text-center space-y-4">
                 <h2 class="text-white font-bold text-lg">黃金投資法則教學網</h2>
                 <p class="text-sm max-w-lg mx-auto">免責聲明：本網頁所有數據與計算結果僅供模擬教學使用，不代表未來實際獲利。</p>
+                <div class="pt-4">
+                    <button onclick="enterPrivacy()" class="text-slate-400 hover:text-white underline text-sm transition-colors">隱私權政策 (Privacy Policy)</button>
+                </div>
             </div>
         </footer>
+    </div>
+
+    <div id="privacy-view" class="flex-1 overflow-y-auto hidden bg-white p-8 md:p-12">
+        <div class="max-w-3xl mx-auto">
+            <h1 class="text-3xl font-bold mb-6 text-slate-800 border-b pb-4 border-blue-600">隱私權政策 (Privacy Policy)</h1>
+            <p class="mb-4 text-slate-600 leading-relaxed">最後更新日期：2026 年 1 月 24 日</p>
+            <p class="mb-4 text-slate-600 leading-relaxed">歡迎您使用 TW-PocketScreener（以下簡稱本網站）。本網站非常重視您的個人隱私，並遵守相關法律規定。以下說明本網站如何收集、使用及保護您的資料。</p>
+
+            <h2 class="text-xl font-bold mt-8 mb-4 text-blue-600">1. Google AdSense 與 Cookie 的使用</h2>
+            <p class="mb-4 text-slate-600 leading-relaxed">本網站使用 Google AdSense 服務來顯示廣告。Google 作為第三方供應商，會使用 Cookie 來在本網站上投放廣告。</p>
+            <ul class="list-disc pl-6 mb-4 text-slate-600 space-y-2">
+                <li>Google 使用 <strong>DART Cookie</strong>，這使得 Google 及其合作夥伴能夠根據您訪問本網站及網際網路上其他網站的紀錄，向您顯示合適的廣告。</li>
+                <li>使用者可以訪問 <a href="https://policies.google.com/technologies/ads" target="_blank" class="text-blue-500 hover:underline">Google 廣告和內容聯播網隱私權政策</a> 頁面，選擇停用 DART Cookie 的使用。</li>
+            </ul>
+
+            <h2 class="text-xl font-bold mt-8 mb-4 text-blue-600">2. 記錄檔 (Log Files)</h2>
+            <p class="mb-4 text-slate-600 leading-relaxed">像許多其他網站一樣，本網站可能會使用記錄檔。這些檔案僅記錄訪客來到網站時的資訊（這也是託管服務的標準程序）。記錄的資訊包括網際網路協定 (IP) 位址、瀏覽器類型、網際網路服務供應商 (ISP)、日期/時間戳記、參考/退出頁面，以及可能的點擊次數。這些資訊用於分析趨勢、管理網站、追蹤使用者在網站上的活動，以及收集人口統計資訊。IP 位址和其他此類資訊不會連結到任何可識別個人身分的資訊。</p>
+
+            <h2 class="text-xl font-bold mt-8 mb-4 text-blue-600">3. 第三方隱私權政策</h2>
+            <p class="mb-4 text-slate-600 leading-relaxed">本網站的隱私權政策不適用於其他廣告商或網站。因此，我們建議您查閱這些第三方廣告伺服器各自的隱私權政策，以獲取更詳細的資訊。其中可能包括他們的實務操作以及關於如何退出某些選項的說明。</p>
+
+            <h2 class="text-xl font-bold mt-8 mb-4 text-blue-600">4. 兒童資訊 (Children's Information)</h2>
+            <p class="mb-4 text-slate-600 leading-relaxed">保護兒童使用網際網路是我們的首要任務之一。我們鼓勵父母和監護人觀察、參與和/或監控並指導孩子的線上活動。本網站不會有意收集 13 歲以下兒童的任何個人識別資訊。</p>
+
+            <h2 class="text-xl font-bold mt-8 mb-4 text-blue-600">5. 同意條款</h2>
+            <p class="mb-4 text-slate-600 leading-relaxed">使用本網站即表示您同意我們的隱私權政策並同意其條款。</p>
+
+            <h2 class="text-xl font-bold mt-8 mb-4 text-blue-600">6. 聯絡我們</h2>
+            <p class="mb-4 text-slate-600 leading-relaxed">如果您對我們的隱私權政策有任何疑問，歡迎透過電子郵件與我們聯繫：<a href="mailto:taco1243@gmail.com" class="text-blue-500 hover:underline font-bold">taco1243@gmail.com</a></p>
+
+            <button onclick="exitPrivacy()" class="mt-8 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 px-8 rounded-lg transition-colors flex items-center gap-2">
+                <i data-lucide="arrow-left"></i> 返回首頁
+            </button>
+        </div>
     </div>
 
     <div id="screener-view" class="flex-1 flex flex-col hidden h-screen" x-data="app()">
@@ -509,7 +542,7 @@ html = f"""<!DOCTYPE html>
             </div>
             <div class="flex flex-col items-end">
                 <div class="text-[10px] text-slate-400">更新: {update_time}</div>
-                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.3.2</div>
+                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.4</div>
             </div>
         </header>
 
@@ -672,11 +705,24 @@ html = f"""<!DOCTYPE html>
         // --- NAVIGATION LOGIC ---
         function enterScreener() {{
             document.getElementById('welcome-view').classList.add('hidden');
+            document.getElementById('privacy-view').classList.add('hidden');
             document.getElementById('screener-view').classList.remove('hidden');
             window.scrollTo(0,0);
         }}
         function exitScreener() {{
             document.getElementById('screener-view').classList.add('hidden');
+            document.getElementById('privacy-view').classList.add('hidden');
+            document.getElementById('welcome-view').classList.remove('hidden');
+            window.scrollTo(0,0);
+        }}
+        function enterPrivacy() {{
+            document.getElementById('welcome-view').classList.add('hidden');
+            document.getElementById('screener-view').classList.add('hidden');
+            document.getElementById('privacy-view').classList.remove('hidden');
+            window.scrollTo(0,0);
+        }}
+        function exitPrivacy() {{
+            document.getElementById('privacy-view').classList.add('hidden');
             document.getElementById('welcome-view').classList.remove('hidden');
             window.scrollTo(0,0);
         }}
