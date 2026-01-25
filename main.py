@@ -541,7 +541,7 @@ html = f"""<!DOCTYPE html>
                 </div>
             </div>
             <div class="flex flex-col items-end">
-                <div class="text-[10px] text-slate-400">更新: {update_time}</div>
+                <div class="text-[10px] text-slate-400">更新: 2026-01-25 10:00 (預覽版)</div>
                 <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.4.1</div>
             </div>
         </header>
