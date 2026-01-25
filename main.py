@@ -1,7 +1,7 @@
 # @title 🚀 TW-PocketScreener V2.4.2 (行動版體驗優化)
 # @markdown 📱 **修正：解決 iPhone 上滑動到底部時，隱私權與聯絡按鈕回彈無法點擊的問題。**
 # @markdown 🔧 **技術：增加底部安全緩衝區 (Safe Area Padding) 與動態視窗高度 (dvh)。**
-# @markdown 🛡️ **功能：保留所有 V2.4 功能 (隱私權頁、GA4、AdSense、選股濾鏡)。**
+# @markdown 🛡️ **功能：包含 V2.4 的隱私權頁面、GA4/AdSense 整合與所有選股功能。**
 
 import subprocess
 import sys
@@ -494,7 +494,7 @@ html = f"""<!DOCTYPE html>
         </footer>
     </div>
 
-    <div id="privacy-view" class="flex-1 overflow-y-auto hidden bg-white p-8 md:p-12 privacy-content">
+    <div id="privacy-view" class="flex-1 overflow-y-auto hidden bg-white p-8 md:p-12 privacy-content pb-24">
         <div class="max-w-3xl mx-auto">
             <h1 class="text-3xl font-bold mb-6">隱私權政策 (Privacy Policy)</h1>
             <p>最後更新日期：2026 年 1 月 24 日</p>
@@ -541,7 +541,7 @@ html = f"""<!DOCTYPE html>
                 </div>
             </div>
             <div class="flex flex-col items-end">
-                <div class="text-[10px] text-slate-400">更新: 2026-01-25 10:00 (預覽版)</div>
+                <div class="text-[10px] text-slate-400">更新: {update_time}</div>
                 <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.4.1</div>
             </div>
         </header>
@@ -627,11 +627,6 @@ html = f"""<!DOCTYPE html>
                         </div>
                     </div>
                 </template>
-                
-                <div x-show="filteredStocks.length === 0" class="text-center py-10 text-slate-400">
-                    <p>沒有符合條件的股票，請放寬篩選標準。</p>
-                </div>
-                
                 <div x-show="displayCount < filteredStocks.length" class="text-center py-4"><button @click="displayCount+=20" class="bg-white border border-slate-300 text-slate-600 px-6 py-2 rounded-full text-sm font-bold shadow-sm hover:bg-slate-50 transition-all">載入更多... (<span x-text="filteredStocks.length-displayCount"></span>)</button></div>
             </div>
         </main>
@@ -649,29 +644,29 @@ html = f"""<!DOCTYPE html>
     <script>
         // --- 1. 大師導覽頁邏輯 ---
         const GURUS = [
-            { id: 'shi', name: '施昇輝 (樂活大叔)', title: '暢銷理財作家', icon: '🧘', quote: '投資是為了讓生活更美好，而不是讓你睡不著覺。', philosophy: '推崇「0050/0056」簡單投資法。認為普通人不必鑽研財報，只要跟隨大盤指數（0050）或高股息（0056），就能取得超越定存的報酬。', highlight: 'K<20買，K>80賣 (針對0050的操作口訣)', searchQuery: '施昇輝 0050 操作心法', articleTitle: '【樂活投資】為什麼我只買0050？', articleContent: ['施昇輝認為，人生有許多比投資更重要的事情。選股非常耗神，且容易看錯。', '核心策略一：只買 0050（台灣50）。因為它包含了台灣市值最大的50家公司，大到不能倒，且每年穩定配息。', '核心策略二：日K值投資法。當日K值小於20時，代表市場過度恐慌，是大膽買進的時機；當日K值大於80時，代表市場過熱，可以分批賣出獲利了結。', '結論：透過簡單的紀律，你可以把時間花在陪伴家人與享受生活，而不是盯著盤面。'] },
-            { id: 'chen', name: '陳重銘 (不敗教主)', title: '資深投資達人', icon: '🏫', quote: '打造你的「資產」，讓資產幫你買單，而不是用勞力買單。', philosophy: '強調「不敗」就是不賠錢，透過持有績優股或 ETF 領取股息，並將股息「再投入」買股，創造複利滾雪球效應。', highlight: '存股就像種樹，樹長大會生股子股孫', searchQuery: '陳重銘 存股 不敗教主', articleTitle: '【不敗心法】讓股息幫你繳房貸', articleContent: ['陳重銘老師原本是領死薪水的流浪教師，靠著存股滾出數千萬資產。', '核心觀念：即使薪水低，也要擠出錢來買進資產。他強調「不敗」的關鍵在於買進不會倒的公司（如金融股、ETF）。', '股息再投入：拿到股息絕對不能花掉，要立刻買進更多的股票。這樣明年的股息會更多，形成正向循環。', '重點：不要在意股價短期的漲跌，要專注於手中持有的「股數」是否增加。'] },
-            { id: 'emily', name: '艾蜜莉 (小資女)', title: '財經作家', icon: '🚦', quote: '好公司要在「便宜價」買進，並預留「安全邊際」。', philosophy: '獨創「紅綠燈估價法」，將股票分為便宜、合理、昂貴三種價格。強調在利空時勇敢買進績優股，耐心等待價格回歸。', highlight: '逆勢價值投資，人棄我取', searchQuery: '艾蜜莉 定存股 紅綠燈', articleTitle: '【小資翻身】紅綠燈估價法教學', articleContent: ['艾蜜莉將價值投資量化為簡單的紅綠燈號。', '綠燈（便宜價）：當好公司遇到倒楣事（如食安風暴、短期匯損），股價跌到便宜價以下，就是全力買進的時機。', '黃燈（合理價）：持有並領取股息，或分批調節。', '紅燈（昂貴價）：分批賣出，保留現金等待下一次機會。', '這套方法非常適合資金不多、想要穩健獲利的小資族。'] },
-            { id: 'warren', name: '周文偉 (華倫老師)', title: '流浪教師變千萬富翁', icon: '🛍️', quote: '時間是好公司的朋友，卻是壞公司的敵人。', philosophy: '專注於「民生消費股」（如食品、電信、環保），因為這些產業受景氣影響小，具備護城河與重複消費特性，適合長期持有。', highlight: '讓每一塊錢都替你賺錢', searchQuery: '華倫老師 存股 養對股票賺千萬', articleTitle: '【生活選股】從逛超市挖掘定存股', articleContent: ['華倫老師喜歡從生活中找股票，例如大家每天都要用的豆腐、沙拉油、電信服務、廢棄物處理。', '這類公司的特色是：產品具有重複消費性、市場獨佔或寡佔、不需要一直更新昂貴的設備。', '策略：只要公司獲利穩定成長，就長期持有，只買不賣。利用時間的複利，讓資產像滾雪球一樣越滾越大。'] }
+            {{ id: 'shi', name: '施昇輝 (樂活大叔)', title: '暢銷理財作家', icon: '🧘', quote: '投資是為了讓生活更美好，而不是讓你睡不著覺。', philosophy: '推崇「0050/0056」簡單投資法。認為普通人不必鑽研財報，只要跟隨大盤指數（0050）或高股息（0056），就能取得超越定存的報酬。', highlight: 'K<20買，K>80賣 (針對0050的操作口訣)', searchQuery: '施昇輝 0050 操作心法', articleTitle: '【樂活投資】為什麼我只買0050？', articleContent: ['施昇輝認為，人生有許多比投資更重要的事情。選股非常耗神，且容易看錯。', '核心策略一：只買 0050（台灣50）。因為它包含了台灣市值最大的50家公司，大到不能倒，且每年穩定配息。', '核心策略二：日K值投資法。當日K值小於20時，代表市場過度恐慌，是大膽買進的時機；當日K值大於80時，代表市場過熱，可以分批賣出獲利了結。', '結論：透過簡單的紀律，你可以把時間花在陪伴家人與享受生活，而不是盯著盤面。'] }},
+            {{ id: 'chen', name: '陳重銘 (不敗教主)', title: '資深投資達人', icon: '🏫', quote: '打造你的「資產」，讓資產幫你買單，而不是用勞力買單。', philosophy: '強調「不敗」就是不賠錢，透過持有績優股或 ETF 領取股息，並將股息「再投入」買股，創造複利滾雪球效應。', highlight: '存股就像種樹，樹長大會生股子股孫', searchQuery: '陳重銘 存股 不敗教主', articleTitle: '【不敗心法】讓股息幫你繳房貸', articleContent: ['陳重銘老師原本是領死薪水的流浪教師，靠著存股滾出數千萬資產。', '核心觀念：即使薪水低，也要擠出錢來買進資產。他強調「不敗」的關鍵在於買進不會倒的公司（如金融股、ETF）。', '股息再投入：拿到股息絕對不能花掉，要立刻買進更多的股票。這樣明年的股息會更多，形成正向循環。', '重點：不要在意股價短期的漲跌，要專注於手中持有的「股數」是否增加。'] }},
+            {{ id: 'emily', name: '艾蜜莉 (小資女)', title: '財經作家', icon: '🚦', quote: '好公司要在「便宜價」買進，並預留「安全邊際」。', philosophy: '獨創「紅綠燈估價法」，將股票分為便宜、合理、昂貴三種價格。強調在利空時勇敢買進績優股，耐心等待價格回歸。', highlight: '逆勢價值投資，人棄我取', searchQuery: '艾蜜莉 定存股 紅綠燈', articleTitle: '【小資翻身】紅綠燈估價法教學', articleContent: ['艾蜜莉將價值投資量化為簡單的紅綠燈號。', '綠燈（便宜價）：當好公司遇到倒楣事（如食安風暴、短期匯損），股價跌到便宜價以下，就是全力買進的時機。', '黃燈（合理價）：持有並領取股息，或分批調節。', '紅燈（昂貴價）：分批賣出，保留現金等待下一次機會。', '這套方法非常適合資金不多、想要穩健獲利的小資族。'] }},
+            {{ id: 'warren', name: '周文偉 (華倫老師)', title: '流浪教師變千萬富翁', icon: '🛍️', quote: '時間是好公司的朋友，卻是壞公司的敵人。', philosophy: '專注於「民生消費股」（如食品、電信、環保），因為這些產業受景氣影響小，具備護城河與重複消費特性，適合長期持有。', highlight: '讓每一塊錢都替你賺錢', searchQuery: '華倫老師 存股 養對股票賺千萬', articleTitle: '【生活選股】從逛超市挖掘定存股', articleContent: ['華倫老師喜歡從生活中找股票，例如大家每天都要用的豆腐、沙拉油、電信服務、廢棄物處理。', '這類公司的特色是：產品具有重複消費性、市場獨佔或寡佔、不需要一直更新昂貴的設備。', '策略：只要公司獲利穩定成長，就長期持有，只買不賣。利用時間的複利，讓資產像滾雪球一樣越滾越大。'] }}
         ];
 
         lucide.createIcons();
 
-        function switchTab(tabName) {
+        function switchTab(tabName) {{
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             document.getElementById('tab-' + tabName).classList.remove('hidden');
-            document.querySelectorAll('.tab-btn').forEach(btn => { btn.className = 'tab-btn px-6 py-3 rounded-full font-bold transition-all flex items-center gap-2 bg-white text-slate-600 hover:bg-slate-100'; });
+            document.querySelectorAll('.tab-btn').forEach(btn => {{ btn.className = 'tab-btn px-6 py-3 rounded-full font-bold transition-all flex items-center gap-2 bg-white text-slate-600 hover:bg-slate-100'; }});
             document.getElementById('btn-' + tabName).className = 'tab-btn px-6 py-3 rounded-full font-bold transition-all flex items-center gap-2 bg-slate-800 text-yellow-400 shadow-lg scale-105';
-        }
+        }}
         switchTab('buffett');
 
         const guruGrid = document.getElementById('gurus-grid');
-        GURUS.forEach(guru => {
+        GURUS.forEach(guru => {{
             const card = document.createElement('div');
             card.className = "bg-slate-50 rounded-2xl p-6 border border-slate-200 hover:shadow-lg transition-all hover:border-yellow-400 group relative overflow-hidden flex flex-col";
-            card.innerHTML = `<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><span class="text-6xl">${guru.icon}</span></div><div class="flex items-start gap-4 mb-4"><div class="w-16 h-16 bg-white rounded-full flex items-center justify-center text-3xl shadow-sm border border-slate-100 flex-shrink-0">${guru.icon}</div><div><h4 class="text-xl font-bold text-slate-800">${guru.name}</h4><span class="text-xs font-semibold bg-slate-200 text-slate-600 px-2 py-1 rounded-full">${guru.title}</span></div></div><div class="mb-4 flex-grow"><p class="text-slate-700 text-sm leading-relaxed mb-3">${guru.philosophy}</p><div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100"><p class="text-xs text-yellow-800 font-bold flex items-center gap-2"><i data-lucide="lightbulb" size="12"></i> 核心心法：${guru.highlight}</p></div></div><div class="border-t border-slate-200 pt-4 mt-auto"><button onclick="openModal('${guru.id}')" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"><i data-lucide="book-open" size="16"></i> 閱讀投資策略</button></div>`;
+            card.innerHTML = `<div class="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><span class="text-6xl">${{guru.icon}}</span></div><div class="flex items-start gap-4 mb-4"><div class="w-16 h-16 bg-white rounded-full flex items-center justify-center text-3xl shadow-sm border border-slate-100 flex-shrink-0">${{guru.icon}}</div><div><h4 class="text-xl font-bold text-slate-800">${{guru.name}}</h4><span class="text-xs font-semibold bg-slate-200 text-slate-600 px-2 py-1 rounded-full">${{guru.title}}</span></div></div><div class="mb-4 flex-grow"><p class="text-slate-700 text-sm leading-relaxed mb-3">${{guru.philosophy}}</p><div class="bg-yellow-50 p-3 rounded-lg border border-yellow-100"><p class="text-xs text-yellow-800 font-bold flex items-center gap-2"><i data-lucide="lightbulb" size="12"></i> 核心心法：${{guru.highlight}}</p></div></div><div class="border-t border-slate-200 pt-4 mt-auto"><button onclick="openModal('${{guru.id}}')" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2"><i data-lucide="book-open" size="16"></i> 閱讀投資策略</button></div>`;
             guruGrid.appendChild(card);
-        });
+        }});
         lucide.createIcons();
 
         // Modal Logic
@@ -679,142 +674,110 @@ html = f"""<!DOCTYPE html>
         const modalContainer = document.getElementById('modal-container');
         let currentSearchQuery = '';
 
-        function openModal(guruId) {
+        function openModal(guruId) {{
             const guru = GURUS.find(g => g.id === guruId);
             if (!guru) return;
             document.getElementById('modal-icon').textContent = guru.icon;
             document.getElementById('modal-title').textContent = guru.articleTitle;
-            document.getElementById('modal-subtitle').textContent = `專家：${guru.name}`;
+            document.getElementById('modal-subtitle').textContent = `專家：${{guru.name}}`;
             const bodyDiv = document.getElementById('modal-body');
             bodyDiv.innerHTML = '';
-            guru.articleContent.forEach(p => {
+            guru.articleContent.forEach(p => {{
                 const pTag = document.createElement('p'); pTag.className = "border-l-2 border-slate-200 pl-3"; pTag.textContent = p; bodyDiv.appendChild(pTag);
-            });
+            }});
             document.getElementById('modal-highlight').textContent = guru.highlight;
             currentSearchQuery = guru.searchQuery;
             modalOverlay.classList.remove('hidden');
-            setTimeout(() => { modalOverlay.classList.remove('opacity-0'); modalContainer.classList.remove('scale-95'); modalContainer.classList.add('scale-100'); }, 10);
-        }
+            setTimeout(() => {{ modalOverlay.classList.remove('opacity-0'); modalContainer.classList.remove('scale-95'); modalContainer.classList.add('scale-100'); }}, 10);
+        }}
 
-        function closeModal() {
+        function closeModal() {{
             modalOverlay.classList.add('opacity-0'); modalContainer.classList.remove('scale-100'); modalContainer.classList.add('scale-95');
-            setTimeout(() => { modalOverlay.classList.add('hidden'); }, 300);
-        }
+            setTimeout(() => {{ modalOverlay.classList.add('hidden'); }}, 300);
+        }}
 
-        document.getElementById('modal-search-btn').onclick = function() { window.open(`https://www.google.com/search?q=${encodeURIComponent(currentSearchQuery)}`, '_blank'); };
+        document.getElementById('modal-search-btn').onclick = function() {{ window.open(`https://www.google.com/search?q=${{encodeURIComponent(currentSearchQuery)}}`, '_blank'); }};
 
         // Calculator Logic
-        const inputs = { initial: document.getElementById('in-initial'), monthly: document.getElementById('in-monthly'), rate: document.getElementById('in-rate'), years: document.getElementById('in-years') };
-        const displays = { initial: document.getElementById('val-initial'), monthly: document.getElementById('val-monthly'), rate: document.getElementById('val-rate'), years: document.getElementById('val-years'), total: document.getElementById('res-total'), principal: document.getElementById('res-principal'), interest: document.getElementById('res-interest'), resYears: document.getElementById('res-years') };
+        const inputs = {{ initial: document.getElementById('in-initial'), monthly: document.getElementById('in-monthly'), rate: document.getElementById('in-rate'), years: document.getElementById('in-years') }};
+        const displays = {{ initial: document.getElementById('val-initial'), monthly: document.getElementById('val-monthly'), rate: document.getElementById('val-rate'), years: document.getElementById('val-years'), total: document.getElementById('res-total'), principal: document.getElementById('res-principal'), interest: document.getElementById('res-interest'), resYears: document.getElementById('res-years') }};
 
-        function formatCurrency(num) { return new Intl.NumberFormat('zh-TW', { style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }).format(num); }
-        function calculate() {
+        function formatCurrency(num) {{ return new Intl.NumberFormat('zh-TW', {{ style: 'currency', currency: 'TWD', maximumFractionDigits: 0 }}).format(num); }}
+        function calculate() {{
             const p = Number(inputs.initial.value); const pmt = Number(inputs.monthly.value); const r = Number(inputs.rate.value); const n = Number(inputs.years.value);
             displays.initial.textContent = formatCurrency(p); displays.monthly.textContent = formatCurrency(pmt); displays.rate.textContent = r + '%'; displays.years.textContent = n + ' 年'; displays.resYears.textContent = n;
-            let total = p; for (let i = 0; i < n * 12; i++) { total = total * (1 + r / 100 / 12) + pmt; }
+            let total = p; for (let i = 0; i < n * 12; i++) {{ total = total * (1 + r / 100 / 12) + pmt; }}
             const totalInvested = p + (pmt * 12 * n); const interestEarned = total - totalInvested;
             displays.total.textContent = formatCurrency(total); displays.principal.textContent = formatCurrency(totalInvested); displays.interest.textContent = '+' + formatCurrency(interestEarned);
-        }
-        Object.values(inputs).forEach(input => { input.addEventListener('input', calculate); });
+        }}
+        Object.values(inputs).forEach(input => {{ input.addEventListener('input', calculate); }});
         calculate();
 
-        function scrollToSection(id) { document.getElementById(id).scrollIntoView({ behavior: 'smooth' }); }
+        function scrollToSection(id) {{ document.getElementById(id).scrollIntoView({{ behavior: 'smooth' }}); }}
 
         // --- 2. 視圖切換邏輯 (SPA) ---
-        // 記錄上一頁，以便從隱私權頁返回時能回到正確的地方
         let lastView = 'welcome-view'; 
 
-        function switchView(targetId) {
-            // 隱藏所有視圖
+        function switchView(targetId) {{
             document.getElementById('welcome-view').classList.add('hidden');
             document.getElementById('screener-view').classList.add('hidden');
             document.getElementById('privacy-view').classList.add('hidden');
-            
-            // 顯示目標視圖
             document.getElementById(targetId).classList.remove('hidden');
             window.scrollTo(0,0);
-        }
+        }}
 
-        function enterScreener() {
-            lastView = 'screener-view';
-            switchView('screener-view');
-        }
-        function exitScreener() {
-            lastView = 'welcome-view';
-            switchView('welcome-view');
-        }
-        function enterPrivacy() {
-            // 記錄當前是在哪一頁按下的
-            if (!document.getElementById('welcome-view').classList.contains('hidden')) {
-                lastView = 'welcome-view';
-            } else if (!document.getElementById('screener-view').classList.contains('hidden')) {
-                lastView = 'screener-view';
-            }
+        function enterScreener() {{ lastView = 'screener-view'; switchView('screener-view'); }}
+        function exitScreener() {{ lastView = 'welcome-view'; switchView('welcome-view'); }}
+        function enterPrivacy() {{
+            if (!document.getElementById('welcome-view').classList.contains('hidden')) {{ lastView = 'welcome-view'; }} 
+            else if (!document.getElementById('screener-view').classList.contains('hidden')) {{ lastView = 'screener-view'; }}
             switchView('privacy-view');
-        }
-        function exitPrivacy() {
-            // 返回上一頁
-            switchView(lastView);
-        }
+        }}
+        function exitPrivacy() {{ switchView(lastView); }}
 
         // --- 3. 選股工具邏輯 (Alpine.js) ---
-        function app() {
-            return {
-                // 🔥 模擬資料 (僅供預覽，實際上會由 Python 產生)
-                stocks: [
-                    { "id": "2330", "name": "台積電", "price": 1000, "vol": 50000, "eps_ttm": 42.5, "eps_avg": 35, "roe_avg": 28, "yield": 2.2, "yield_avg": 2.5, "cons_div": 20, "core_purity": 99, "gm_stability": 1.5, "payout_ratio": 45, "tags": ["🔥高ROE", "✨績優股", "🏆黃金存股"], "sparkline": [980, 990, 1000] },
-                    { "id": "2412", "name": "中華電", "price": 125, "vol": 8000, "eps_ttm": 4.8, "eps_avg": 4.5, "roe_avg": 10, "yield": 4.2, "yield_avg": 4.1, "cons_div": 25, "core_purity": 98, "gm_stability": 0.5, "payout_ratio": 99, "tags": ["💰高殖利"], "sparkline": [123, 124, 125] },
-                    { "id": "2454", "name": "聯發科", "price": 1100, "vol": 6000, "eps_ttm": 55, "eps_avg": 50, "roe_avg": 22, "yield": 5.5, "yield_avg": 6.2, "cons_div": 15, "core_purity": 92, "gm_stability": 4, "payout_ratio": 75, "tags": ["💰高殖利", "🔥高ROE"], "sparkline": [1080, 1090, 1100] },
-                    { "id": "9904", "name": "寶成", "price": 35, "vol": 12000, "eps_ttm": 3.5, "eps_avg": 3.2, "roe_avg": 8, "yield": 4.8, "yield_avg": 5.1, "cons_div": 30, "core_purity": 85, "gm_stability": 3, "payout_ratio": 65, "tags": ["📈站上月線"], "sparkline": [34, 34.5, 35] },
-                    { "id": "2886", "name": "兆豐金", "price": 40, "vol": 20000, "eps_ttm": 2.5, "eps_avg": 2.1, "roe_avg": 11, "yield": 5.2, "yield_avg": 5.5, "cons_div": 22, "core_purity": 95, "gm_stability": 2, "payout_ratio": 85, "tags": ["💰高殖利"], "sparkline": [39, 39.5, 40] }
-                ],
-                filters: [], 
-                newFilter: { type: 'roe_avg', operator: '>=', value: 15 }, 
-                showFilter: true, 
-                sortKey: 'yield_avg', 
-                sortDesc: true, 
-                displayCount: 20,
+        function app() {{
+            return {{
+                stocks: {json_db}, filters: [], newFilter: {{ type: 'roe_avg', operator: '>=', value: 15 }}, showFilter: true, sortKey: 'yield_avg', sortDesc: true, displayCount: 20,
                 
-                applyDepositStrategy() {
+                applyDepositStrategy() {{
                     this.filters = [
-                        { type: 'eps_ttm', operator: '>=', value: 1 },   
-                        { type: 'eps_avg', operator: '>=', value: 2 },   
-                        { type: 'yield_avg', operator: '>=', value: 5 }, 
-                        { type: 'cons_div', operator: '>=', value: 10 }, 
-                        { type: 'roe_avg', operator: '>=', value: 15 },
-                        { type: 'core_purity', operator: '>=', value: 80 },
-                        { type: 'gm_stability', operator: '<=', value: 5 },
-                        { type: 'payout_ratio', operator: '>=', value: 60 },
-                        { type: 'payout_ratio', operator: '<=', value: 100 }
+                        {{ type: 'eps_ttm', operator: '>=', value: 1 }},   
+                        {{ type: 'eps_avg', operator: '>=', value: 2 }},   
+                        {{ type: 'yield_avg', operator: '>=', value: 5 }}, 
+                        {{ type: 'cons_div', operator: '>=', value: 10 }}, 
+                        {{ type: 'roe_avg', operator: '>=', value: 15 }},
+                        {{ type: 'core_purity', operator: '>=', value: 80 }},
+                        {{ type: 'gm_stability', operator: '<=', value: 5 }},
+                        {{ type: 'payout_ratio', operator: '>=', value: 60 }},
+                        {{ type: 'payout_ratio', operator: '<=', value: 100 }}
                     ];
                     this.sortKey = 'yield_avg';
                     this.displayCount = 20;
                     alert('✅ 已套用「黃金存股 8 法則」！(含純度/穩定度/發放率)');
-                },
+                }},
 
-                get filteredStocks() {
+                get filteredStocks() {{
                     let res = this.stocks;
-                    if (this.filters.length > 0) {
-                        res = res.filter(s => this.filters.every(f => {
+                    if (this.filters.length > 0) {{
+                        res = res.filter(s => this.filters.every(f => {{
                             let v = s[f.type];
                             if (f.type === 'ma_bull') return v === true;
                             return f.operator === '>=' ? v >= parseFloat(f.value) : v <= parseFloat(f.value);
-                        }));
-                    }
+                        }}));
+                    }}
                     return res.sort((a, b) => (this.sortDesc ? (b[this.sortKey] || -999) - (a[this.sortKey] || -999) : (a[this.sortKey] || -999) - (b[this.sortKey] || -999)));
-                },
-                
-                getLabel(f) { const map = { 'roe_avg': '5年ROE', 'eps_ttm': 'EPS', 'eps_avg': '5年EPS', 'gross_margin': '毛利率', 'yield': '殖利率', 'yield_avg': '5年殖利', 'pe': 'PE', 'pb': 'PB', 'rev_growth': '營收YoY', 'vol': '成交量', 'ma_bull': '站上月線', 'cons_div': '連續配息', 'core_purity': '本業純度', 'gm_stability': '毛利變動', 'payout_ratio': '發放率' }; return f.type === 'ma_bull' ? map[f.type] : `${map[f.type]} ${f.operator} ${f.value}`; },
-                
-                addFilter() { if (this.newFilter.type) this.filters.push(this.newFilter.type === 'ma_bull' ? { type: 'ma_bull', operator: '=', value: 0 } : { ...this.newFilter }); this.displayCount = 20; },
-                
-                removeFilter(i) { this.filters.splice(i, 1); },
-                
-                getSparklinePath(d) { if (!d.length) return ""; const w=100, h=30, min=Math.min(...d), max=Math.max(...d), r=max-min||1, sx=w/(d.length-1); return d.map((p,i)=>`${i==0?'M':'L'} ${i*sx} ${h-((p-min)/r)*h}`).join(' '); },
-                
-                init() { this.$watch('filters', ()=>this.displayCount=20); this.$watch('sortKey', ()=>this.displayCount=20); }
-            }
-        }
+                }},
+                getLabel(f) {{ const map = {{ 'roe_avg': '5年ROE', 'eps_ttm': 'EPS', 'eps_avg': '5年EPS', 'gross_margin': '毛利率', 'yield': '殖利率', 'yield_avg': '5年殖利', 'pe': 'PE', 'pb': 'PB', 'rev_growth': '營收YoY', 'vol': '成交量', 'ma_bull': '站上月線', 'cons_div': '連續配息', 'core_purity': '本業純度', 'gm_stability': '毛利變動', 'payout_ratio': '發放率' }}; return f.type === 'ma_bull' ? map[f.type] : `${{map[f.type]}} ${{f.operator}} ${{f.value}}`; }},
+                addFilter() {{ if (this.newFilter.type) this.filters.push(this.newFilter.type === 'ma_bull' ? {{ type: 'ma_bull', operator: '=', value: 0 }} : {{ ...this.newFilter }}); this.displayCount = 20; }},
+                removeFilter(i) {{ this.filters.splice(i, 1); }},
+                getSparklinePath(d) {{ if (!d.length) return ""; const w=100, h=30, min=Math.min(...d), max=Math.max(...d), r=max-min||1, sx=w/(d.length-1); return d.map((p,i)=>`${{i==0?'M':'L'}} ${{i*sx}} ${{h-((p-min)/r)*h}}`).join(' '); }},
+                init() {{ this.$watch('filters', ()=>this.displayCount=20); this.$watch('sortKey', ()=>this.displayCount=20); }}
+            }}
+        }}
     </script>
 </body>
-</html>
+</html>"""
+
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(html)
