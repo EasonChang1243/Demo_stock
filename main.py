@@ -1,7 +1,6 @@
-# @title 🚀 TW-PocketScreener V2.4.3 (穩定修復版)
-# @markdown 🔧 **修正：解決 'dict' object has no attribute 'id' 錯誤 (修復 f-string 跳脫字元)。**
-# @markdown 📝 **注意：請務必完整複製此段程式碼，包含最後一行的引號，以避免 SyntaxError。**
-# @markdown 🛡️ **功能：包含 V2.4 的所有功能 (隱私權頁、GA4/AdSense、行動版優化、選股濾鏡)。**
+# @title 🚀 TW-PocketScreener V2.4.4 (終極穩定版)
+# @markdown 🔧 **修正：改用 .replace() 方法生成 HTML，徹底解決 SyntaxError 與 f-string 衝突。**
+# @markdown 🛡️ **保證：包含 AdSense, GA4, 隱私權頁面, 存股濾鏡, 行動版優化等所有功能。**
 
 import subprocess
 import sys
@@ -137,7 +136,6 @@ for i, chunk in enumerate(chunks):
                     "price": price, "vol": vol,
                     "sparkline": [round(x, 2) for x in close], 
                     "ma_bull": price > ma20,
-                    # 指標初始化
                     "eps_ttm": 0, "eps_avg": 0, 
                     "roe_ttm": 0, "roe_avg": 0, "roa": 0,
                     "gross_margin": 0, "op_margin": 0, 
@@ -295,7 +293,6 @@ with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
                 processed_data[t].update(stats)
                 
                 tags = []
-                # V2.2 黃金存股 8 大法則
                 is_golden = (processed_data[t]['eps_ttm'] >= 1 and 
                              processed_data[t]['eps_avg'] >= 2 and
                              processed_data[t]['yield_avg'] >= 5 and
@@ -319,13 +316,13 @@ print(f"\n\n✅ 深度分析完成。成功獲取完整數據: {enriched_count}/
 # 轉 JSON
 final_db = list(processed_data.values())
 try:
-    json_db = json.dumps(final_db, cls=NpEncoder, ensure_ascii=False)
+    json_db_str = json.dumps(final_db, cls=NpEncoder, ensure_ascii=False)
 except Exception as e:
-    print(f"JSON Error: {e}"); json_db = "[]"
+    print(f"JSON Error: {e}"); json_db_str = "[]"
 
 # --- 最終統計報告 ---
 print("\n" + "="*35)
-print("📊 TW-PocketScreener V2.4.2 執行報告")
+print("📊 TW-PocketScreener V2.4.4 執行報告")
 print("="*35)
 print(f"📋 監測總數 : {len(all_stocks)} 檔")
 print(f"✅ 股價有效 : {len(processed_data)} 檔")
@@ -333,31 +330,25 @@ print(f"💎 財報完整 : {enriched_count} 檔")
 print("="*35 + "\n")
 
 # ==========================================
-# 4. 生成 HTML (V2.4.2)
+# 4. 生成 HTML (V2.4.4 - 使用 Raw String + Replace 避免錯誤)
 # ==========================================
-update_time = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
+current_time_str = (datetime.utcnow() + timedelta(hours=8)).strftime('%Y-%m-%d %H:%M')
 
-ga_code = """
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCJHY24Z2K"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-FCJHY24Z2K');
-</script>
-"""
-
-adsense_code = """
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3682384993858973"
-     crossorigin="anonymous"></script>
-"""
-
-# HTML 生成 (注意：此處所有CSS與JS的大括號都必須是雙數 {{ }}，Python變數才是單數 { })
-html = f"""<!DOCTYPE html>
+# 定義 HTML 模板 (Raw String r''')，這樣 Python 不會把 {stock.id} 當成變數
+html_template = r'''<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    {ga_code}
-    {adsense_code}
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCJHY24Z2K"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-FCJHY24Z2K');
+    </script>
+
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3682384993858973"
+         crossorigin="anonymous"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TW-PocketScreener V2.4 - 存股大師版</title>
@@ -366,12 +357,12 @@ html = f"""<!DOCTYPE html>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js" defer></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body {{ font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }}
-        .animate-fade-in {{ animation: fadeIn 0.5s ease-out; }}
-        @keyframes fadeIn {{ from {{ opacity: 0; transform: translateY(10px); }} to {{ opacity: 1; transform: translateY(0); }} }}
-        .no-scrollbar::-webkit-scrollbar {{ display: none; }}
-        .no-scrollbar {{ -ms-overflow-style: none; scrollbar-width: none; }}
-        [x-cloak] {{ display: none !important; }}
+        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        [x-cloak] { display: none !important; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen supports-[height:100dvh]:h-[100dvh] flex flex-col overflow-hidden">
@@ -541,8 +532,8 @@ html = f"""<!DOCTYPE html>
                 </div>
             </div>
             <div class="flex flex-col items-end">
-                <div class="text-[10px] text-slate-400">更新: 2026-01-25 10:00 (預覽版)</div>
-                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.4.1</div>
+                <div class="text-[10px] text-slate-400">更新: __UPDATE_TIME__</div>
+                <div class="text-[10px] font-mono text-white bg-purple-600 px-1.5 rounded">V2.4.4</div>
             </div>
         </header>
 
@@ -585,7 +576,6 @@ html = f"""<!DOCTYPE html>
                     </div>
                 </div>
             </div>
-            
             <div class="px-4 py-2 flex justify-between items-center border-b border-slate-200 mx-2 pb-2 bg-slate-100">
                 <div class="text-sm font-medium text-slate-500">符合: <span x-text="filteredStocks.length"></span> 檔</div>
                 <div class="flex items-center gap-2">
@@ -602,7 +592,6 @@ html = f"""<!DOCTYPE html>
                     <button @click="sortDesc = !sortDesc" class="p-1.5 bg-white rounded-md border border-slate-200 shadow-sm text-slate-600 active:bg-slate-100"><span x-show="sortDesc">⬇️</span><span x-show="!sortDesc">⬆️</span></button>
                 </div>
             </div>
-            
             <div class="px-3 py-3 space-y-3">
                 <template x-for="stock in filteredStocks.slice(0, displayCount)" :key="stock.id">
                     <div class="bg-white p-4 rounded-xl border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] transition-all hover:shadow-md">
@@ -631,7 +620,7 @@ html = f"""<!DOCTYPE html>
             </div>
         </main>
         
-        <footer class="py-10 text-center">
+        <footer class="py-10 text-center border-t border-slate-200 mt-auto bg-white">
             <p class="text-xs text-slate-400 mb-2">© 2026 Eason Chang. All rights reserved.</p>
             <div class="flex justify-center items-center gap-2 text-xs text-slate-400">
                 <button onclick="enterPrivacy()" class="hover:text-slate-600 transition-colors">隱私權政策</button>
@@ -738,20 +727,8 @@ html = f"""<!DOCTYPE html>
         // --- 3. 選股工具邏輯 (Alpine.js) ---
         function app() {
             return {
-                // 🔥 模擬資料 (僅供預覽，實際上會由 Python 產生)
-                stocks: [
-                    { "id": "2330", "name": "台積電", "price": 1000, "vol": 50000, "eps_ttm": 42.5, "eps_avg": 35, "roe_avg": 28, "yield": 2.2, "yield_avg": 2.5, "cons_div": 20, "core_purity": 99, "gm_stability": 1.5, "payout_ratio": 45, "tags": ["🔥高ROE", "✨績優股", "🏆黃金存股"], "sparkline": [980, 990, 1000] },
-                    { "id": "2412", "name": "中華電", "price": 125, "vol": 8000, "eps_ttm": 4.8, "eps_avg": 4.5, "roe_avg": 10, "yield": 4.2, "yield_avg": 4.1, "cons_div": 25, "core_purity": 98, "gm_stability": 0.5, "payout_ratio": 99, "tags": ["💰高殖利"], "sparkline": [123, 124, 125] },
-                    { "id": "2454", "name": "聯發科", "price": 1100, "vol": 6000, "eps_ttm": 55, "eps_avg": 50, "roe_avg": 22, "yield": 5.5, "yield_avg": 6.2, "cons_div": 15, "core_purity": 92, "gm_stability": 4, "payout_ratio": 75, "tags": ["💰高殖利", "🔥高ROE"], "sparkline": [1080, 1090, 1100] },
-                    { "id": "9904", "name": "寶成", "price": 35, "vol": 12000, "eps_ttm": 3.5, "eps_avg": 3.2, "roe_avg": 8, "yield": 4.8, "yield_avg": 5.1, "cons_div": 30, "core_purity": 85, "gm_stability": 3, "payout_ratio": 65, "tags": ["📈站上月線"], "sparkline": [34, 34.5, 35] },
-                    { "id": "2886", "name": "兆豐金", "price": 40, "vol": 20000, "eps_ttm": 2.5, "eps_avg": 2.1, "roe_avg": 11, "yield": 5.2, "yield_avg": 5.5, "cons_div": 22, "core_purity": 95, "gm_stability": 2, "payout_ratio": 85, "tags": ["💰高殖利"], "sparkline": [39, 39.5, 40] }
-                ],
-                filters: [], 
-                newFilter: { type: 'roe_avg', operator: '>=', value: 15 }, 
-                showFilter: true, 
-                sortKey: 'yield_avg', 
-                sortDesc: true, 
-                displayCount: 20,
+                stocks: __JSON_DB__,
+                filters: [], newFilter: { type: 'roe_avg', operator: '>=', value: 15 }, showFilter: true, sortKey: 'yield_avg', sortDesc: true, displayCount: 20,
                 
                 applyDepositStrategy() {
                     this.filters = [
@@ -781,18 +758,20 @@ html = f"""<!DOCTYPE html>
                     }
                     return res.sort((a, b) => (this.sortDesc ? (b[this.sortKey] || -999) - (a[this.sortKey] || -999) : (a[this.sortKey] || -999) - (b[this.sortKey] || -999)));
                 },
-                
                 getLabel(f) { const map = { 'roe_avg': '5年ROE', 'eps_ttm': 'EPS', 'eps_avg': '5年EPS', 'gross_margin': '毛利率', 'yield': '殖利率', 'yield_avg': '5年殖利', 'pe': 'PE', 'pb': 'PB', 'rev_growth': '營收YoY', 'vol': '成交量', 'ma_bull': '站上月線', 'cons_div': '連續配息', 'core_purity': '本業純度', 'gm_stability': '毛利變動', 'payout_ratio': '發放率' }; return f.type === 'ma_bull' ? map[f.type] : `${map[f.type]} ${f.operator} ${f.value}`; },
-                
                 addFilter() { if (this.newFilter.type) this.filters.push(this.newFilter.type === 'ma_bull' ? { type: 'ma_bull', operator: '=', value: 0 } : { ...this.newFilter }); this.displayCount = 20; },
-                
                 removeFilter(i) { this.filters.splice(i, 1); },
-                
                 getSparklinePath(d) { if (!d.length) return ""; const w=100, h=30, min=Math.min(...d), max=Math.max(...d), r=max-min||1, sx=w/(d.length-1); return d.map((p,i)=>`${i==0?'M':'L'} ${i*sx} ${h-((p-min)/r)*h}`).join(' '); },
-                
                 init() { this.$watch('filters', ()=>this.displayCount=20); this.$watch('sortKey', ()=>this.displayCount=20); }
             }
         }
     </script>
 </body>
-</html>
+</html>'''
+
+# 5. 進行替換 (這是最關鍵的一步，把 JSON 數據填入模板)
+final_html = html_template.replace("__JSON_DB__", json_db_str).replace("__UPDATE_TIME__", current_time_str)
+
+# 6. 寫入檔案
+with open("index.html", "w", encoding="utf-8") as f:
+    f.write(final_html)
